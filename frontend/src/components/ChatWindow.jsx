@@ -72,7 +72,9 @@ const ChatWindow = ({
 
   if (!selectedConversation) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-black/[0.04]">
+      <div className={`flex-1 flex flex-col items-center justify-center p-8 text-center bg-black/[0.04] ${
+        mobileView === 'chat_window' ? 'flex' : 'hidden md:flex'
+      }`}>
         <div className="h-16 w-16 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-center text-gray-500 mb-4">
           <MessageSquare size={24} />
         </div>
