@@ -61,6 +61,7 @@ chat-application/
 │   └── package.json
 ├── frontend/
 │   ├── public/               # Static assets
+│   │   └── _redirects        # Netlify SPA redirection rules
 │   ├── src/
 │   │   ├── assets/           # Custom images and styles
 │   │   ├── components/       # Modular UI components (Dock, Sidebar, ChatList, ChatWindow, CallPanel)
@@ -69,6 +70,7 @@ chat-application/
 │   │   ├── App.jsx           # Main routing & state setup
 │   │   ├── index.css         # Styling system including glassmorphic styles
 │   │   └── main.jsx          # React app mount entry point
+│   ├── .npmrc                # Custom npm peer dependency resolution setting
 │   ├── tailwind.config.js    # Tailwind layout utility configuration
 │   ├── vite.config.js        # Vite bundling and dev-server configuration
 │   └── package.json
@@ -251,12 +253,6 @@ Since this project is organized as a monorepo containing both `backend/` and `fr
 7. Click **Deploy site**.
 8. Netlify will build and deploy your React frontend. It will provide you with a custom live URL (e.g. `https://nebula-chat.netlify.app`).
 
-#### 🚨 Crucial: Handling Single Page Application (SPA) Refresh 404s
-React uses client-side routing. If a user refreshes their browser on page paths like `/dashboard`, Netlify will return a `404 Not Found` because it looks for a static file at `/dashboard/index.html`.
-To fix this, create a file named `_redirects` inside your frontend `public` directory:
-- Path: `frontend/public/_redirects`
-- Content:
-  ```text
-  /*    /index.html   200
-  ```
-This tells Netlify to redirect all routes to React's main `index.html` file, letting React handle the routing internally.
+#### 🚨 Crucial: Resolving Peer Dependency & SPA Routing Issues
+- **Peer Dependency resolution**: Because of version differences between React 19 and older packages like Lucide Icons, we have created a `frontend/.npmrc` file with `legacy-peer-deps=true`. Netlify will automatically use this config to bypass installation blocking.
+- **Refreshes (404s)**: To prevent routing errors on client-side refresh, a `_redirects` file is included in your frontend `public` directory.
