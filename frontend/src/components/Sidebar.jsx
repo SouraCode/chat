@@ -103,7 +103,7 @@ const Sidebar = ({
           }`}
         >
           <Video size={16} />
-          <span>Calls Simulation</span>
+          <span>Calls</span>
         </button>
       </div>
 

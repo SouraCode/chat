@@ -6,7 +6,7 @@ const Conversation = require('../models/Conversation');
 // @access  Private
 exports.sendMessage = async (req, res, next) => {
   try {
-    const { content, conversationId, type } = req.body;
+    const { content, conversationId, type, clientMessageId } = req.body;
 
     if (!content || !conversationId) {
       return res.status(400).json({ success: false, message: 'Please provide conversationId and content' });
@@ -27,6 +27,7 @@ exports.sendMessage = async (req, res, next) => {
       sender: req.user._id,
       content,
       type: type || 'text',
+      clientMessageId: clientMessageId || '',
       readBy: [req.user._id]
     });
 

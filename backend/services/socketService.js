@@ -100,7 +100,7 @@ const initSocket = (server) => {
     // Event: Real-time Message Sending
     socket.on('sendMessage', async (data) => {
       try {
-        const { conversationId, content, type } = data;
+        const { conversationId, content, type, clientMessageId } = data;
 
         if (!mongoose.isValidObjectId(conversationId) || typeof content !== 'string' || !content.trim()) {
           return socket.emit('errorMsg', { message: 'Conversation ID and content required' });
@@ -136,6 +136,7 @@ const initSocket = (server) => {
           sender: userId,
           content: content.trim(),
           type: type || 'text',
+          clientMessageId: clientMessageId || '',
           readBy: [userId]
         });
 
@@ -150,6 +151,7 @@ const initSocket = (server) => {
 
         // Broadcast new message to all users in the chat room
         io.to(conversationId).emit('messageReceived', populatedMessage);
+        socket.emit('messageReceived', populatedMessage);
       } catch (err) {
         console.error('Socket sendMessage error:', err.message);
         socket.emit('errorMsg', { message: 'Failed to send message via socket' });
@@ -159,7 +161,7 @@ const initSocket = (server) => {
     // Event: Call Simulation (Signaling)
     // 1. Dial Call
     socket.on('callUser', async (data) => {
-      const { userToCall, signalData } = data;
+      const { userToCall, signalData, type } = data;
       const from = userId;
       const name = socket.user.username;
 
@@ -189,7 +191,8 @@ const initSocket = (server) => {
           signal: signalData,
           from,
           name,
-          avatar: socket.user.avatar
+          avatar: socket.user.avatar,
+          type: type === 'audio' ? 'audio' : 'video'
         });
       }
     });
@@ -200,6 +203,13 @@ const initSocket = (server) => {
       const callerSocketId = userSocketMap.get(to);
       if (callerSocketId) {
         io.to(callerSocketId).emit('callAccepted', { signal });
+      }
+    });
+
+    socket.on('iceCandidate', (data) => {
+      const targetSocketId = userSocketMap.get(data.to);
+      if (targetSocketId && data.candidate) {
+        io.to(targetSocketId).emit('iceCandidate', { candidate: data.candidate });
       }
     });
 

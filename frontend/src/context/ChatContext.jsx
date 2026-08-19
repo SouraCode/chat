@@ -28,6 +28,11 @@ export const ChatProvider = ({ children }) => {
   const [currentCall, setCurrentCall] = useState(null); // { peerId, peerName, peerAvatar, isCaller, type }
   const [callDuration, setCallDuration] = useState(0);
   const [callSettings, setCallSettings] = useState({ isMuted: false, isCameraOff: false, isVolumeOn: true });
+  const [localStream, setLocalStream] = useState(null);
+  const [remoteStream, setRemoteStream] = useState(null);
+  const peerConnectionRef = useRef(null);
+  const localStreamRef = useRef(null);
+  const pendingCandidatesRef = useRef([]);
   const selectedConversationRef = useRef(selectedConversation);
   const callStateRef = useRef(callState);
   const currentCallRef = useRef(currentCall);
@@ -81,6 +86,42 @@ export const ChatProvider = ({ children }) => {
     });
   }, [conversations, socket]);
 
+  const stopMedia = useCallback(() => {
+    peerConnectionRef.current?.close();
+    peerConnectionRef.current = null;
+    localStreamRef.current?.getTracks().forEach((track) => track.stop());
+    localStreamRef.current = null;
+    pendingCandidatesRef.current = [];
+    setLocalStream(null);
+    setRemoteStream(null);
+  }, []);
+
+  const getMedia = useCallback(async (type) => {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: type === 'video'
+    });
+    localStreamRef.current = stream;
+    setLocalStream(stream);
+    return stream;
+  }, []);
+
+  const createPeerConnection = useCallback((peerId, stream) => {
+    const connection = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    });
+    stream.getTracks().forEach((track) => connection.addTrack(track, stream));
+    connection.onicecandidate = ({ candidate }) => {
+      if (candidate) socket?.emit('iceCandidate', { to: peerId, candidate });
+    };
+    connection.ontrack = ({ streams }) => setRemoteStream(streams[0]);
+    connection.onconnectionstatechange = () => {
+      if (connection.connectionState === 'failed') stopMedia();
+    };
+    peerConnectionRef.current = connection;
+    return connection;
+  }, [socket, stopMedia]);
+
   // Reset states on logout
   useEffect(() => {
     if (!token || !user) {
@@ -91,8 +132,9 @@ export const ChatProvider = ({ children }) => {
       setTypingUsers({});
       setCallState('idle');
       setCurrentCall(null);
+      stopMedia();
     }
-  }, [token, user]);
+  }, [token, user, stopMedia]);
 
   // Load conversations list
   const fetchConversations = useCallback(async () => {
@@ -179,13 +221,25 @@ export const ChatProvider = ({ children }) => {
   // Send message helper
   const sendMessage = async (content, type = 'text') => {
     if (!selectedConversation || !content.trim()) return;
+    const clientMessageId = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const optimisticMessage = {
+      _id: clientMessageId,
+      clientMessageId,
+      conversation: selectedConversation._id,
+      sender: { _id: user?.id, username: user?.username, avatar: user?.avatar },
+      content: content.trim(),
+      type,
+      createdAt: new Date().toISOString()
+    };
+    setMessages((prev) => [...prev, optimisticMessage]);
 
     // Use socket if connected, fallback to REST
     if (socket) {
       socket.emit('sendMessage', {
         conversationId: selectedConversation._id,
         content: content.trim(),
-        type
+        type,
+        clientMessageId
       });
     } else {
       try {
@@ -198,12 +252,15 @@ export const ChatProvider = ({ children }) => {
           body: JSON.stringify({
             conversationId: selectedConversation._id,
             content: content.trim(),
-            type
+            type,
+            clientMessageId
           })
         });
         const data = await res.json();
         if (data.success) {
-          setMessages(prev => [...prev, data.message]);
+          setMessages(prev => prev.map((message) =>
+            message.clientMessageId === data.message.clientMessageId ? data.message : message
+          ));
           fetchConversations();
         }
       } catch (err) {
@@ -301,24 +358,45 @@ export const ChatProvider = ({ children }) => {
     return false;
   };
 
-  // Call simulation triggers
-  const startCall = (peerId, peerName, peerAvatar, type = 'audio') => {
+  const startCall = async (peerId, peerName, peerAvatar, type = 'audio') => {
     if (!socket) return;
-    setCallState('dialing');
-    setIsCallMinimized(false);
-    setCurrentCall({ peerId, peerName, peerAvatar, isCaller: true, type });
-    socket.emit('callUser', {
-      userToCall: peerId,
-      signalData: null,
-      from: user.id,
-      name: user.username
-    });
+    try {
+      const stream = await getMedia(type);
+      const connection = createPeerConnection(peerId, stream);
+      const offer = await connection.createOffer();
+      await connection.setLocalDescription(offer);
+      setCallState('dialing');
+      setCallSettings({ isMuted: false, isCameraOff: false, isVolumeOn: true });
+      setIsCallMinimized(false);
+      setCurrentCall({ peerId, peerName, peerAvatar, isCaller: true, type });
+      socket.emit('callUser', { userToCall: peerId, signalData: offer, type });
+    } catch (error) {
+      stopMedia();
+      alert('Microphone or camera access is required to start a call.');
+      console.error('Unable to start call:', error);
+    }
   };
 
-  const acceptCall = () => {
-    if (!socket || !currentCall) return;
-    setCallState('connected');
-    socket.emit('answerCall', { to: currentCall.peerId, signal: null });
+  const acceptCall = async () => {
+    if (!socket || !currentCall?.signal) return;
+    try {
+      const stream = await getMedia(currentCall.type);
+      const connection = createPeerConnection(currentCall.peerId, stream);
+      await connection.setRemoteDescription(currentCall.signal);
+      for (const candidate of pendingCandidatesRef.current) await connection.addIceCandidate(candidate);
+      pendingCandidatesRef.current = [];
+      const answer = await connection.createAnswer();
+      await connection.setLocalDescription(answer);
+      setCallState('connected');
+      setCallSettings({ isMuted: false, isCameraOff: false, isVolumeOn: true });
+      socket.emit('answerCall', { to: currentCall.peerId, signal: answer });
+    } catch (error) {
+      stopMedia();
+      setCallState('idle');
+      setCurrentCall(null);
+      alert('Unable to access your microphone or camera.');
+      console.error('Unable to accept call:', error);
+    }
   };
 
   const declineCall = () => {
@@ -329,6 +407,7 @@ export const ChatProvider = ({ children }) => {
     setCallState('idle');
     setCurrentCall(null);
     setIsCallMinimized(false);
+    stopMedia();
   };
 
   const endCall = () => {
@@ -347,6 +426,7 @@ export const ChatProvider = ({ children }) => {
     setCallState('idle');
     setCurrentCall(null);
     setIsCallMinimized(false);
+    stopMedia();
   };
 
   // Register socket event listeners
@@ -356,10 +436,16 @@ export const ChatProvider = ({ children }) => {
     // Handle message received
     socket.on('messageReceived', (message) => {
       // If message is in the selected conversation
-      if (selectedConversationRef.current && message.conversation === selectedConversationRef.current._id) {
+      if (selectedConversationRef.current && String(message.conversation) === String(selectedConversationRef.current._id)) {
         setMessages(prev => {
           // Check if message is already added
           if (prev.some(m => m._id === message._id)) return prev;
+          const optimisticIndex = prev.findIndex((m) => m.clientMessageId && m.clientMessageId === message.clientMessageId);
+          if (optimisticIndex !== -1) {
+            const next = [...prev];
+            next[optimisticIndex] = message;
+            return next;
+          }
           return [...prev, message];
         });
       }
@@ -367,7 +453,7 @@ export const ChatProvider = ({ children }) => {
       // Update last message in conversation list
       setConversations(prev => {
         return prev.map(c => {
-          if (c._id === message.conversation) {
+          if (String(c._id) === String(message.conversation)) {
             return { ...c, lastMessage: message, updatedAt: message.createdAt };
           }
           return c;
@@ -426,7 +512,7 @@ export const ChatProvider = ({ children }) => {
     });
 
     // Handle Call Signalling Listeners
-    socket.on('incomingCall', ({ from, name, avatar }) => {
+    socket.on('incomingCall', ({ from, name, avatar, signal, type }) => {
       // If already in a call, ignore/auto-decline
       if (callStateRef.current !== 'idle') {
         socket.emit('declineCall', { to: from });
@@ -434,11 +520,24 @@ export const ChatProvider = ({ children }) => {
       }
       setCallState('ringing');
       setIsCallMinimized(false);
-      setCurrentCall({ peerId: from, peerName: name, peerAvatar: avatar, isCaller: false, type: 'video' });
+      setCurrentCall({ peerId: from, peerName: name, peerAvatar: avatar, isCaller: false, type, signal });
     });
 
-    socket.on('callAccepted', () => {
+    socket.on('callAccepted', async ({ signal }) => {
+      if (!peerConnectionRef.current || !signal) return;
+      await peerConnectionRef.current.setRemoteDescription(signal);
+      for (const candidate of pendingCandidatesRef.current) await peerConnectionRef.current.addIceCandidate(candidate);
+      pendingCandidatesRef.current = [];
       setCallState('connected');
+    });
+
+    socket.on('iceCandidate', async ({ candidate }) => {
+      if (!candidate) return;
+      if (peerConnectionRef.current?.remoteDescription) {
+        await peerConnectionRef.current.addIceCandidate(candidate);
+      } else {
+        pendingCandidatesRef.current.push(candidate);
+      }
     });
 
     socket.on('callDeclined', () => {
@@ -449,6 +548,7 @@ export const ChatProvider = ({ children }) => {
       setCallState('idle');
       setCurrentCall(null);
       setIsCallMinimized(false);
+      stopMedia();
       alert('Call declined');
     });
 
@@ -464,6 +564,7 @@ export const ChatProvider = ({ children }) => {
       setCallState('idle');
       setCurrentCall(null);
       setIsCallMinimized(false);
+      stopMedia();
     });
 
     return () => {
@@ -475,8 +576,9 @@ export const ChatProvider = ({ children }) => {
       socket.off('callAccepted');
       socket.off('callDeclined');
       socket.off('callEnded');
+      socket.off('iceCandidate');
     };
-  }, [socket, addCallHistory]);
+  }, [socket, addCallHistory, stopMedia]);
 
   return (
     <ChatContext.Provider
@@ -502,6 +604,8 @@ export const ChatProvider = ({ children }) => {
         callDuration,
         callSettings,
         setCallSettings,
+        localStream,
+        remoteStream,
         startCall,
         acceptCall,
         declineCall,

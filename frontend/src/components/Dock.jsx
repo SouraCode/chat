@@ -26,7 +26,7 @@ const Dock = ({ activeTab, setActiveTab }) => {
               ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/25'
               : 'text-gray-400 hover:text-white hover:bg-white/5'
           }`}
-          title="Video Calls Simulation"
+          title="Calls"
         >
           <Video size={20} />
         </button>

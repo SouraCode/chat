@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useChat } from '../context/ChatContext';
 import {
   ArrowLeft,
@@ -8,7 +8,6 @@ import {
   Camera,
   MicOff,
   Mic,
-  Monitor,
   Volume2,
   VolumeX,
   Phone,
@@ -25,8 +24,23 @@ const CallPanel = ({ mobileView, setMobileView }) => {
     acceptCall,
     declineCall,
     endCall,
-    setIsCallMinimized
+    setIsCallMinimized,
+    localStream,
+    remoteStream
   } = useChat();
+  const localVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
+
+  useEffect(() => {
+    if (localVideoRef.current) localVideoRef.current.srcObject = localStream;
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
+  }, [localStream, remoteStream]);
+
+  useEffect(() => {
+    localStream?.getAudioTracks().forEach((track) => { track.enabled = !callSettings.isMuted; });
+    localStream?.getVideoTracks().forEach((track) => { track.enabled = !callSettings.isCameraOff; });
+    if (remoteVideoRef.current) remoteVideoRef.current.muted = !callSettings.isVolumeOn;
+  }, [localStream, remoteStream, callSettings]);
 
   const formatTimer = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -64,7 +78,18 @@ const CallPanel = ({ mobileView, setMobileView }) => {
       </div>
 
       {/* Calling profile area */}
-      <div className="flex-1 flex flex-col items-center justify-center">
+      <div className="flex-1 flex flex-col items-center justify-center p-4">
+        {currentCall?.type === 'video' && (localStream || remoteStream) && (
+          <div className="relative w-full max-w-3xl aspect-video rounded-3xl overflow-hidden bg-black border border-white/10 shadow-2xl mb-6">
+            {remoteStream ? (
+              <video ref={remoteVideoRef} autoPlay playsInline className="h-full w-full object-cover" />
+            ) : (
+              <div className="h-full w-full flex items-center justify-center text-sm text-gray-400">Waiting for the other person to join…</div>
+            )}
+            <video ref={localVideoRef} autoPlay playsInline muted className="absolute bottom-3 right-3 h-24 w-32 sm:h-32 sm:w-44 rounded-2xl object-cover bg-[#1b1b22] border border-white/10 shadow-lg" />
+          </div>
+        )}
+        {currentCall?.type === 'audio' && remoteStream && <audio ref={remoteVideoRef} autoPlay />}
         <div className="relative mb-6">
           <div className="absolute -inset-4 rounded-[42px] bg-gradient-to-tr from-blue-600 to-indigo-600 opacity-20 blur-xl animate-pulse"></div>
           <img
@@ -106,11 +131,6 @@ const CallPanel = ({ mobileView, setMobileView }) => {
             }`}
           >
             {callSettings.isMuted ? <MicOff size={20} /> : <Mic size={20} />}
-          </button>
-
-          {/* Screen Share Control */}
-          <button className="p-3.5 rounded-full glass-btn text-gray-300 hover:text-white transition-all">
-            <Monitor size={20} />
           </button>
 
           {/* Speaker Control */}

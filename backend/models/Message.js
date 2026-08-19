@@ -16,6 +16,10 @@ const messageSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Message content is required']
     },
+    clientMessageId: {
+      type: String,
+      default: ''
+    },
     type: {
       type: String,
       enum: ['text', 'image', 'video', 'audio', 'file'],

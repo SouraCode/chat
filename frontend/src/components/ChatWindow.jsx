@@ -192,14 +192,14 @@ const ChatWindow = ({
                   <button
                     onClick={() => startCall(peer._id, peer.username, peer.avatar, 'audio')}
                     className="p-2 sm:p-2.5 rounded-xl glass-btn text-gray-400 hover:text-white transition-all"
-                    title="Simulate Voice Call"
+                    title="Start voice call"
                   >
                     <Phone size={18} />
                   </button>
                   <button
                     onClick={() => startCall(peer._id, peer.username, peer.avatar, 'video')}
                     className="p-2 sm:p-2.5 rounded-xl glass-btn text-gray-400 hover:text-white animate-pulse transition-all"
-                    title="Simulate Video Call"
+                    title="Start video call"
                   >
                     <Video size={18} />
                   </button>
