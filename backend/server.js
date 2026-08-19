@@ -59,9 +59,8 @@ app.use('/api/communities', communityRoutes);
 // Error Handling Middleware (must be registered last)
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`server is run on port : ${PORT} `)
+server.listen('3000', () => {
+  console.log(`server is run on port : 3000 `)
 })
 
 
