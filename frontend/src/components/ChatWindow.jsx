@@ -101,7 +101,7 @@ const ChatWindow = ({
   };
 
   return (
-    <div className={`flex-1 flex flex-col bg-black/[0.04] relative ${
+    <div className={`flex-1 min-w-0 flex flex-col bg-[#0d0d12]/45 relative ${
       mobileView === 'chat_window' && selectedConversation ? 'flex' : 'hidden md:flex'
     }`}>
       {/* Minimized Call Banner */}
@@ -147,7 +147,7 @@ const ChatWindow = ({
       )}
 
       {/* Active Chat Header */}
-      <div className="p-4 sm:p-6 border-b border-white/5 flex items-center justify-between gap-2">
+      <div className="p-4 sm:p-5 border-b border-white/5 flex items-center justify-between gap-2 bg-black/[0.06]">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           {/* Back arrow on Mobile */}
           <button
@@ -229,7 +229,7 @@ const ChatWindow = ({
       </div>
 
       {/* Message scrolling panel */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 sm:p-6 lg:px-8 space-y-4">
         {messages.map((msg) => {
           const isMe = msg.sender._id === user?.id;
 
@@ -267,7 +267,7 @@ const ChatWindow = ({
       </div>
 
       {/* Message input footer form */}
-      <form onSubmit={handleSend} className="p-3 sm:p-6 border-t border-white/5 flex gap-2 sm:gap-3">
+      <form onSubmit={handleSend} className="p-3 sm:p-4 lg:px-6 border-t border-white/5 flex gap-2 sm:gap-3 bg-black/[0.08]">
         <input
           type="text"
           value={messageText}

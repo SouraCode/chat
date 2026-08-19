@@ -62,11 +62,11 @@ const ChatList = ({
     .filter((p, index, self) => self.findIndex(t => t._id === p._id) === index);
 
   return (
-    <div className={`w-full md:w-[360px] flex-shrink-0 border-r border-white/5 flex flex-col bg-black/10 ${
+    <div className={`w-full md:w-[320px] lg:w-[340px] flex-shrink-0 border-r border-white/5 flex flex-col bg-[#111116]/45 ${
       mobileView === 'channels' ? 'flex' : 'hidden md:flex'
     }`}>
       {/* Search bar */}
-      <div className="p-6 pb-4 flex items-center gap-3">
+      <div className="p-4 sm:p-5 pb-3 flex items-center gap-3 border-b border-white/5">
         {/* Mobile Profile Settings Trigger */}
         <div className="relative md:hidden flex-shrink-0">
           <img
@@ -110,7 +110,7 @@ const ChatList = ({
             placeholder="Search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 rounded-xl glass-input text-xs"
+            className="w-full pl-9 pr-4 py-2.5 rounded-lg glass-input text-xs"
           />
         </div>
 
@@ -126,11 +126,11 @@ const ChatList = ({
 
       {/* Online Users Horizontal Row */}
       {activeTab !== 'communities' && (
-        <div className="px-6 pb-6 border-b border-white/5">
-          <div className="text-left text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wider">
+        <div className="px-5 py-3 border-b border-white/5">
+          <div className="text-left text-[11px] font-semibold text-gray-500 mb-2.5 uppercase tracking-wider">
             Active Friends
           </div>
-          <div className="flex items-center gap-4 overflow-x-auto pb-1 scroll-smooth">
+          <div className="flex items-center gap-3 overflow-x-auto pb-1 scroll-smooth">
             {uniqueFriends.map((friend) => (
               <div
                 key={friend._id}
@@ -141,7 +141,7 @@ const ChatList = ({
                   <img
                     src={friend.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${friend.username}`}
                     alt={friend.username}
-                    className="h-12 w-12 rounded-full border border-white/5 object-cover"
+                    className="h-10 w-10 rounded-full border border-white/5 object-cover"
                   />
                   {onlineUsers.has(friend._id) && (
                     <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full bg-green-500 border-2 border-[#0c0c0f]"></span>
@@ -163,7 +163,7 @@ const ChatList = ({
 
       {/* Active Chats Listing */}
       <div className="flex-1 overflow-y-auto p-4 pb-20 md:pb-4 space-y-2 text-left">
-        <div className="px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+        <div className="px-2 text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">
           {activeTab === 'communities' ? 'Browse Communities' : activeTab === 'calls' ? 'Call History logs' : 'Recent Message Logs'}
         </div>
 
@@ -321,7 +321,7 @@ const ChatList = ({
                 <div
                   key={chat._id}
                   onClick={() => selectChat(chat)}
-                  className={`flex items-center gap-3.5 p-3 rounded-2xl cursor-pointer transition-all ${
+                  className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-all ${
                     selectedConversation?._id === chat._id
                       ? 'bg-white/5 border border-white/5 shadow-md shadow-black/10'
                       : 'hover:bg-white/[0.03] border border-transparent'
@@ -335,7 +335,7 @@ const ChatList = ({
                           : peer?.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${peer?.username}`
                       }
                       alt={isCommunity ? chat.name : peer?.username}
-                      className="h-11 w-11 rounded-2xl border border-white/5 object-cover bg-white/5"
+                      className="h-10 w-10 rounded-xl border border-white/5 object-cover bg-white/5"
                     />
                     {!isCommunity && isOnline && (
                       <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full bg-green-500 border-2 border-[#0c0c0f]"></span>

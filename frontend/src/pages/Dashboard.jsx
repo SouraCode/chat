@@ -33,6 +33,7 @@ const Dashboard = () => {
   const [newCommunityName, setNewCommunityName] = useState('');
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [availableCommunities, setAvailableCommunities] = useState([]);
+  const [isSearchingUsers, setIsSearchingUsers] = useState(false);
 
   // Mobile layout state: 'channels' | 'messages' | 'chat_window' | 'call_screen'
   const [mobileView, setMobileView] = useState('channels');
@@ -40,26 +41,41 @@ const Dashboard = () => {
   // Fetch users for searching
   useEffect(() => {
     if (showSearchModal) {
+      const query = searchQuery.trim();
+      if (query.length < 2) {
+        setUsersList([]);
+        setIsSearchingUsers(false);
+        return undefined;
+      }
+
+      let cancelled = false;
       const searchUsers = async () => {
         try {
+          setIsSearchingUsers(true);
           const token = localStorage.getItem('token');
-          const res = await fetch(`${API_URL}/api/users?search=${searchQuery}`, {
+          const res = await fetch(`${API_URL}/api/users?search=${encodeURIComponent(query)}`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           const data = await res.json();
-          if (data.success) {
+          if (!cancelled && data.success) {
             setUsersList(data.users);
           }
         } catch (err) {
           console.error(err);
+          if (!cancelled) setUsersList([]);
+        } finally {
+          if (!cancelled) setIsSearchingUsers(false);
         }
       };
 
       const delayDebounce = setTimeout(() => {
         searchUsers();
-      }, 300);
+      }, 250);
 
-      return () => clearTimeout(delayDebounce);
+      return () => {
+        cancelled = true;
+        clearTimeout(delayDebounce);
+      };
     }
   }, [searchQuery, showSearchModal]);
 
@@ -126,14 +142,14 @@ const Dashboard = () => {
   }, [callState, selectedConversation]);
 
   return (
-    <div className="relative h-[100dvh] w-full flex items-center justify-center overflow-hidden bg-[#0c0c0f] font-sans p-0 sm:p-4 md:p-8">
+    <div className="relative h-[100dvh] w-full flex items-center justify-center overflow-hidden bg-[#0c0c0f] font-sans p-0 sm:p-3 md:p-6">
       {/* Ambient background glow layers */}
       <div className="ambient-glow ambient-glow-1"></div>
       <div className="ambient-glow ambient-glow-2"></div>
       <div className="ambient-glow ambient-glow-3"></div>
 
       {/* Main glass workspace container */}
-      <div className="z-10 h-full w-full max-w-7xl glass-container rounded-none sm:rounded-[36px] flex overflow-hidden relative shadow-2xl">
+      <div className="z-10 h-full w-full max-w-[1440px] glass-container rounded-none sm:rounded-[28px] flex overflow-hidden relative shadow-2xl">
         
         {/* COLUMN 0: Floating Left Navigation Dock */}
         <Dock activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -219,7 +235,7 @@ const Dashboard = () => {
       {/* MODAL 1: Search Users & Start Chats */}
       {showSearchModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
-          <div className="w-full max-w-md glass-container rounded-3xl p-6 relative border border-white/10 shadow-2xl">
+          <div className="w-full max-w-md glass-container rounded-3xl p-5 sm:p-6 relative border border-white/10 shadow-2xl">
             <button
               onClick={() => { setShowSearchModal(false); setSearchQuery(''); }}
               className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all"
@@ -227,7 +243,8 @@ const Dashboard = () => {
               <X size={18} />
             </button>
 
-            <h3 className="text-lg font-bold text-gray-100 mb-4 text-left">Search Users</h3>
+            <h3 className="text-lg font-bold text-gray-100 text-left">Start a conversation</h3>
+            <p className="text-xs text-gray-500 mt-1 mb-4 text-left">Search by a name or email address.</p>
             <div className="relative mb-4">
               <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -236,7 +253,7 @@ const Dashboard = () => {
               </span>
               <input
                 type="text"
-                placeholder="Type name or email..."
+                placeholder="Type at least 2 characters..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl glass-input text-sm"
@@ -266,14 +283,19 @@ const Dashboard = () => {
                   </div>
                 </div>
               ))}
-              {usersList.length === 0 && searchQuery && (
+              {isSearchingUsers && (
+                <div className="flex items-center justify-center gap-2 py-7 text-xs text-gray-500">
+                  <span className="h-3 w-3 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" /> Searching users…
+                </div>
+              )}
+              {!isSearchingUsers && usersList.length === 0 && searchQuery.trim().length >= 2 && (
                 <div className="text-center py-6 text-xs text-gray-600">
                   No users found matching query
                 </div>
               )}
-              {usersList.length === 0 && !searchQuery && (
+              {!isSearchingUsers && usersList.length === 0 && searchQuery.trim().length < 2 && (
                 <div className="text-center py-6 text-xs text-gray-600">
-                  Search other users to start direct messaging.
+                  Enter at least 2 characters to find someone.
                 </div>
               )}
             </div>

@@ -29,9 +29,9 @@ const Sidebar = ({
   const joinedCommunities = conversations.filter(c => c.type === 'community');
 
   return (
-    <div className="hidden md:flex w-[320px] flex-shrink-0 border-r border-white/5 flex-col">
+    <div className="hidden md:flex w-[270px] lg:w-[290px] flex-shrink-0 border-r border-white/5 flex-col bg-black/10">
       {/* Profile Header */}
-      <div className="relative p-6 flex items-center justify-between border-b border-white/5">
+      <div className="relative p-5 flex items-center justify-between border-b border-white/5">
         <div
           className="flex items-center gap-3 cursor-pointer hover:opacity-85 transition-opacity"
           onClick={() => setShowProfileMenu(!showProfileMenu)}
@@ -80,10 +80,10 @@ const Sidebar = ({
       </div>
 
       {/* Sidebar Navigation */}
-      <div className="p-4 flex flex-col gap-1">
+      <div className="p-3 flex flex-col gap-1">
         <button
           onClick={() => { setActiveTab('chats'); }}
-          className={`flex items-center justify-between px-4 py-3 rounded-2xl transition-all text-sm ${
+          className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-sm ${
             activeTab === 'chats' ? 'bg-white/5 text-white font-medium' : 'text-gray-400 hover:text-white hover:bg-white/5'
           }`}
         >
@@ -98,7 +98,7 @@ const Sidebar = ({
 
         <button
           onClick={() => { setActiveTab('calls'); }}
-          className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-sm ${
+          className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all text-sm ${
             activeTab === 'calls' ? 'bg-white/5 text-white font-medium' : 'text-gray-400 hover:text-white hover:bg-white/5'
           }`}
         >
@@ -109,7 +109,7 @@ const Sidebar = ({
 
       {/* Communities listing */}
       <div className="flex-1 flex flex-col min-h-0 border-t border-white/5 mt-2">
-        <div className="px-6 py-4 flex items-center justify-between text-xs font-semibold text-gray-500 uppercase tracking-wider">
+        <div className="px-5 py-4 flex items-center justify-between text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
           <span>Communities</span>
           <button
             onClick={() => setShowNewCommunityModal(true)}

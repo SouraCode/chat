@@ -5,21 +5,24 @@ const User = require('../models/User');
 // @access  Private
 exports.searchUsers = async (req, res, next) => {
   try {
-    const search = req.query.search
-      ? {
+    const query = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+    if (query.length < 2) {
+      return res.status(200).json({ success: true, users: [] });
+    }
+
+    const search = {
           $and: [
             {
               $or: [
-                { username: { $regex: req.query.search, $options: 'i' } },
-                { email: { $regex: req.query.search, $options: 'i' } }
+                { username: { $regex: query, $options: 'i' } },
+                { email: { $regex: query, $options: 'i' } }
               ]
             },
             { _id: { $ne: req.user._id } } // Exclude the logged-in user
           ]
-        }
-      : { _id: { $ne: req.user._id } };
+        };
 
-    const users = await User.find(search).select('-password');
+    const users = await User.find(search).select('-password').sort({ username: 1 }).limit(20);
     res.status(200).json({ success: true, users });
   } catch (error) {
     next(error);
