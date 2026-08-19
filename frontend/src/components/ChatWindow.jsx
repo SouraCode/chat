@@ -15,7 +15,6 @@ import {
 
 const ChatWindow = ({
   messageText,
-  setMessageText,
   handleInputChange,
   handleSend,
   mobileView,
@@ -148,8 +147,8 @@ const ChatWindow = ({
       )}
 
       {/* Active Chat Header */}
-      <div className="p-6 border-b border-white/5 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="p-4 sm:p-6 border-b border-white/5 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           {/* Back arrow on Mobile */}
           <button
             onClick={handleBack}
@@ -165,7 +164,7 @@ const ChatWindow = ({
                 : peer?.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${selectedConversation.name}`
             }
             alt="Chat avatar"
-            className="h-10 w-10 rounded-xl bg-white/5 border border-white/5 object-cover"
+            className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-white/5 border border-white/5 object-cover flex-shrink-0"
           />
 
           <div className="text-left">
@@ -185,21 +184,21 @@ const ChatWindow = ({
         </div>
 
         {/* Header Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
           {!isCommunity ? (
             <>
               {!isBlockedByMe && (
                 <>
                   <button
                     onClick={() => startCall(peer._id, peer.username, peer.avatar, 'audio')}
-                    className="p-2.5 rounded-xl glass-btn text-gray-400 hover:text-white transition-all"
+                    className="p-2 sm:p-2.5 rounded-xl glass-btn text-gray-400 hover:text-white transition-all"
                     title="Simulate Voice Call"
                   >
                     <Phone size={18} />
                   </button>
                   <button
                     onClick={() => startCall(peer._id, peer.username, peer.avatar, 'video')}
-                    className="p-2.5 rounded-xl glass-btn text-gray-400 hover:text-white animate-pulse transition-all"
+                    className="p-2 sm:p-2.5 rounded-xl glass-btn text-gray-400 hover:text-white animate-pulse transition-all"
                     title="Simulate Video Call"
                   >
                     <Video size={18} />
@@ -208,7 +207,7 @@ const ChatWindow = ({
               )}
               <button
                 onClick={handleBlockToggle}
-                className={`p-2.5 rounded-xl border transition-all ${
+                className={`p-2 sm:p-2.5 rounded-xl border transition-all ${
                   isBlockedByMe
                     ? 'bg-red-500/20 border-red-500/30 text-red-400 hover:bg-red-500/30'
                     : 'glass-btn text-gray-400 hover:text-red-400 hover:border-red-500/20'
@@ -230,13 +229,13 @@ const ChatWindow = ({
       </div>
 
       {/* Message scrolling panel */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
         {messages.map((msg) => {
           const isMe = msg.sender._id === user?.id;
 
           return (
             <div key={msg._id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-              <div className={`flex gap-3 max-w-[70%] ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+              <div className={`flex gap-2 sm:gap-3 max-w-[85%] sm:max-w-[70%] ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                 {!isMe && (
                   <img
                     src={msg.sender.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${msg.sender.username}`}
@@ -268,7 +267,7 @@ const ChatWindow = ({
       </div>
 
       {/* Message input footer form */}
-      <form onSubmit={handleSend} className="p-6 border-t border-white/5 flex gap-3">
+      <form onSubmit={handleSend} className="p-3 sm:p-6 border-t border-white/5 flex gap-2 sm:gap-3">
         <input
           type="text"
           value={messageText}

@@ -4,8 +4,6 @@ import { useChat } from '../context/ChatContext';
 import {
   MessageSquare,
   Video,
-  Archive,
-  Users,
   Plus,
   ChevronDown,
   LogOut,
@@ -18,8 +16,7 @@ const Sidebar = ({
   setShowSearchModal,
   setShowNewCommunityModal,
   changeAvatar,
-  selectChat,
-  mobileView
+  selectChat
 }) => {
   const { user, logout } = useAuth();
   const {

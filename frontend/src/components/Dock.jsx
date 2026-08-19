@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare, Video, Users, Archive, LogOut } from 'lucide-react';
+import { MessageSquare, Video, Users, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const Dock = ({ activeTab, setActiveTab }) => {

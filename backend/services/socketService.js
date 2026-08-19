@@ -1,5 +1,6 @@
 const socketIO = require('socket.io');
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
@@ -59,9 +60,13 @@ const initSocket = (server) => {
     socket.join(userId);
 
     // Event: User joins a specific chat/conversation room
-    socket.on('joinChat', (conversationId) => {
+    socket.on('joinChat', async (conversationId) => {
+      if (!mongoose.isValidObjectId(conversationId)) {
+        return socket.emit('errorMsg', { message: 'Invalid conversation' });
+      }
+      const conversation = await Conversation.findOne({ _id: conversationId, participants: userId }).select('_id');
+      if (!conversation) return socket.emit('errorMsg', { message: 'You are not a member of this conversation' });
       socket.join(conversationId);
-      console.log(`User ${socket.user.username} joined room: ${conversationId}`);
     });
 
     // Event: User leaves a specific chat/conversation room
@@ -71,7 +76,10 @@ const initSocket = (server) => {
     });
 
     // Event: Typing indicators
-    socket.on('typing', ({ conversationId }) => {
+    socket.on('typing', async ({ conversationId }) => {
+      if (!mongoose.isValidObjectId(conversationId)) return;
+      const conversation = await Conversation.findOne({ _id: conversationId, participants: userId }).select('_id');
+      if (!conversation) return;
       socket.to(conversationId).emit('typing', {
         conversationId,
         userId,
@@ -79,7 +87,10 @@ const initSocket = (server) => {
       });
     });
 
-    socket.on('stopTyping', ({ conversationId }) => {
+    socket.on('stopTyping', async ({ conversationId }) => {
+      if (!mongoose.isValidObjectId(conversationId)) return;
+      const conversation = await Conversation.findOne({ _id: conversationId, participants: userId }).select('_id');
+      if (!conversation) return;
       socket.to(conversationId).emit('stopTyping', {
         conversationId,
         userId
@@ -91,7 +102,7 @@ const initSocket = (server) => {
       try {
         const { conversationId, content, type } = data;
 
-        if (!conversationId || !content) {
+        if (!mongoose.isValidObjectId(conversationId) || typeof content !== 'string' || !content.trim()) {
           return socket.emit('errorMsg', { message: 'Conversation ID and content required' });
         }
 
@@ -99,6 +110,9 @@ const initSocket = (server) => {
         const conversation = await Conversation.findById(conversationId);
         if (!conversation) {
           return socket.emit('errorMsg', { message: 'Conversation not found' });
+        }
+        if (!conversation.participants.some((id) => id.toString() === userId)) {
+          return socket.emit('errorMsg', { message: 'You are not a member of this conversation' });
         }
 
         if (conversation.type === 'direct') {
@@ -120,7 +134,7 @@ const initSocket = (server) => {
         const message = await Message.create({
           conversation: conversationId,
           sender: userId,
-          content,
+          content: content.trim(),
           type: type || 'text',
           readBy: [userId]
         });
@@ -145,10 +159,22 @@ const initSocket = (server) => {
     // Event: Call Simulation (Signaling)
     // 1. Dial Call
     socket.on('callUser', async (data) => {
-      const { userToCall, signalData, from, name } = data;
+      const { userToCall, signalData } = data;
+      const from = userId;
+      const name = socket.user.username;
+
+      if (!userToCall || userToCall.toString() === userId) {
+        return socket.emit('errorMsg', { message: 'A valid call recipient is required' });
+      }
+      if (!mongoose.isValidObjectId(userToCall)) {
+        return socket.emit('errorMsg', { message: 'A valid call recipient is required' });
+      }
 
       const senderUser = await User.findById(from);
       const targetUser = await User.findById(userToCall);
+      if (!targetUser) {
+        return socket.emit('errorMsg', { message: 'Call recipient not found' });
+      }
       
       const isSenderBlocking = senderUser && senderUser.blockedUsers.some(id => id.toString() === userToCall.toString());
       const isRecipientBlocking = targetUser && targetUser.blockedUsers.some(id => id.toString() === from.toString());

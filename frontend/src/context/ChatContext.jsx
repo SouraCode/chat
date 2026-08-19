@@ -1,8 +1,14 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth, API_URL } from './AuthContext';
 import { useSocket } from './SocketContext';
 
 const ChatContext = createContext();
+
+const formatTimer = (seconds) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+};
 
 export const ChatProvider = ({ children }) => {
   const { token, user } = useAuth();
@@ -22,6 +28,15 @@ export const ChatProvider = ({ children }) => {
   const [currentCall, setCurrentCall] = useState(null); // { peerId, peerName, peerAvatar, isCaller, type }
   const [callDuration, setCallDuration] = useState(0);
   const [callSettings, setCallSettings] = useState({ isMuted: false, isCameraOff: false, isVolumeOn: true });
+  const selectedConversationRef = useRef(selectedConversation);
+  const callStateRef = useRef(callState);
+  const currentCallRef = useRef(currentCall);
+  const callDurationRef = useRef(callDuration);
+
+  selectedConversationRef.current = selectedConversation;
+  callStateRef.current = callState;
+  currentCallRef.current = currentCall;
+  callDurationRef.current = callDuration;
 
   // Call history & minimization states
   const [isCallMinimized, setIsCallMinimized] = useState(false);
@@ -163,13 +178,13 @@ export const ChatProvider = ({ children }) => {
 
   // Send message helper
   const sendMessage = async (content, type = 'text') => {
-    if (!selectedConversation) return;
+    if (!selectedConversation || !content.trim()) return;
 
     // Use socket if connected, fallback to REST
     if (socket) {
       socket.emit('sendMessage', {
         conversationId: selectedConversation._id,
-        content,
+        content: content.trim(),
         type
       });
     } else {
@@ -182,7 +197,7 @@ export const ChatProvider = ({ children }) => {
           },
           body: JSON.stringify({
             conversationId: selectedConversation._id,
-            content,
+            content: content.trim(),
             type
           })
         });
@@ -341,7 +356,7 @@ export const ChatProvider = ({ children }) => {
     // Handle message received
     socket.on('messageReceived', (message) => {
       // If message is in the selected conversation
-      if (selectedConversation && message.conversation === selectedConversation._id) {
+      if (selectedConversationRef.current && message.conversation === selectedConversationRef.current._id) {
         setMessages(prev => {
           // Check if message is already added
           if (prev.some(m => m._id === message._id)) return prev;
@@ -413,7 +428,7 @@ export const ChatProvider = ({ children }) => {
     // Handle Call Signalling Listeners
     socket.on('incomingCall', ({ from, name, avatar }) => {
       // If already in a call, ignore/auto-decline
-      if (callState !== 'idle') {
+      if (callStateRef.current !== 'idle') {
         socket.emit('declineCall', { to: from });
         return;
       }
@@ -427,8 +442,9 @@ export const ChatProvider = ({ children }) => {
     });
 
     socket.on('callDeclined', () => {
-      if (currentCall) {
-        addCallHistory(currentCall.peerId, currentCall.peerName, currentCall.peerAvatar, currentCall.type, 'declined', 'outgoing', 0);
+      if (currentCallRef.current) {
+        const call = currentCallRef.current;
+        addCallHistory(call.peerId, call.peerName, call.peerAvatar, call.type, 'declined', 'outgoing', 0);
       }
       setCallState('idle');
       setCurrentCall(null);
@@ -437,11 +453,12 @@ export const ChatProvider = ({ children }) => {
     });
 
     socket.on('callEnded', () => {
-      if (currentCall) {
-        if (callState === 'connected') {
-          addCallHistory(currentCall.peerId, currentCall.peerName, currentCall.peerAvatar, currentCall.type, 'completed', currentCall.isCaller ? 'outgoing' : 'incoming', callDuration);
+      if (currentCallRef.current) {
+        const call = currentCallRef.current;
+        if (callStateRef.current === 'connected') {
+          addCallHistory(call.peerId, call.peerName, call.peerAvatar, call.type, 'completed', call.isCaller ? 'outgoing' : 'incoming', callDurationRef.current);
         } else {
-          addCallHistory(currentCall.peerId, currentCall.peerName, currentCall.peerAvatar, currentCall.type, 'missed', 'incoming', 0);
+          addCallHistory(call.peerId, call.peerName, call.peerAvatar, call.type, 'missed', 'incoming', 0);
         }
       }
       setCallState('idle');
@@ -459,7 +476,7 @@ export const ChatProvider = ({ children }) => {
       socket.off('callDeclined');
       socket.off('callEnded');
     };
-  }, [socket, selectedConversation, callState, currentCall]);
+  }, [socket, addCallHistory]);
 
   return (
     <ChatContext.Provider

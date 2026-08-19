@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import io from 'socket.io-client';
 import { useAuth, API_URL } from './AuthContext';
 
@@ -6,12 +6,15 @@ const SocketContext = createContext();
 
 export const SocketProvider = ({ children }) => {
   const { token, user } = useAuth();
+  const userId = user?.id;
   const [socket, setSocket] = useState(null);
+  const socketRef = useRef(null);
 
   useEffect(() => {
-    if (!token || !user) {
-      if (socket) {
-        socket.disconnect();
+    if (!token || !userId) {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
         setSocket(null);
       }
       return;
@@ -23,6 +26,7 @@ export const SocketProvider = ({ children }) => {
       transports: ['websocket']
     });
 
+    socketRef.current = newSocket;
     setSocket(newSocket);
 
     newSocket.on('connect', () => {
@@ -35,8 +39,12 @@ export const SocketProvider = ({ children }) => {
 
     return () => {
       newSocket.disconnect();
+      if (socketRef.current === newSocket) {
+        socketRef.current = null;
+        setSocket(null);
+      }
     };
-  }, [token, user]);
+  }, [token, userId]);
 
   return (
     <SocketContext.Provider value={socket}>

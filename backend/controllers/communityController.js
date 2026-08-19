@@ -43,7 +43,7 @@ exports.joinCommunity = async (req, res, next) => {
     }
 
     // Check if already in community
-    if (community.participants.includes(req.user._id)) {
+    if (community.participants.some((id) => id.equals(req.user._id))) {
       return res.status(400).json({ success: false, message: 'Already a member of this community' });
     }
 
@@ -76,7 +76,7 @@ exports.leaveCommunity = async (req, res, next) => {
     }
 
     // Check if user is participant
-    if (!community.participants.includes(req.user._id)) {
+    if (!community.participants.some((id) => id.equals(req.user._id))) {
       return res.status(400).json({ success: false, message: 'You are not a member of this community' });
     }
 

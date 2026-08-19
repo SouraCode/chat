@@ -17,6 +17,9 @@ exports.sendMessage = async (req, res, next) => {
     if (!conversation) {
       return res.status(404).json({ success: false, message: 'Conversation not found' });
     }
+    if (!conversation.participants.some((id) => id.equals(req.user._id))) {
+      return res.status(403).json({ success: false, message: 'You are not a member of this conversation' });
+    }
 
     // Create message
     const message = await Message.create({
@@ -52,6 +55,9 @@ exports.getMessages = async (req, res, next) => {
     const conversation = await Conversation.findById(conversationId);
     if (!conversation) {
       return res.status(404).json({ success: false, message: 'Conversation not found' });
+    }
+    if (!conversation.participants.some((id) => id.equals(req.user._id))) {
+      return res.status(403).json({ success: false, message: 'You are not a member of this conversation' });
     }
 
     // Fetch messages

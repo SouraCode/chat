@@ -49,7 +49,7 @@ const CallPanel = ({ mobileView, setMobileView }) => {
       mobileView === 'call_screen' ? 'flex' : 'hidden md:flex'
     }`}>
       {/* Call Header controls */}
-      <div className="p-6 flex items-center justify-between text-gray-400">
+      <div className="p-4 sm:p-6 flex items-center justify-between text-gray-400">
         <button onClick={handleBack} className="p-2.5 rounded-xl glass-btn hover:text-white transition-all">
           <ArrowLeft size={20} />
         </button>
@@ -86,8 +86,8 @@ const CallPanel = ({ mobileView, setMobileView }) => {
       </div>
 
       {/* Bottom Call Control Buttons */}
-      <div className="p-8 flex justify-center">
-        <div className="glass-panel px-8 py-5 rounded-3xl flex items-center gap-6 border border-white/5">
+      <div className="p-4 sm:p-8 flex justify-center">
+        <div className="glass-panel px-4 py-4 sm:px-8 sm:py-5 rounded-3xl flex items-center justify-center flex-wrap gap-3 sm:gap-6 border border-white/5">
           {/* Camera Control */}
           <button
             onClick={() => setCallSettings(prev => ({ ...prev, isCameraOff: !prev.isCameraOff }))}

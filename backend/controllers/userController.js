@@ -78,9 +78,17 @@ exports.blockUser = async (req, res, next) => {
     if (!userId) {
       return res.status(400).json({ success: false, message: 'Please provide a userId to block' });
     }
+    if (userId.toString() === req.user._id.toString()) {
+      return res.status(400).json({ success: false, message: 'You cannot block yourself' });
+    }
+
+    const targetUser = await User.exists({ _id: userId });
+    if (!targetUser) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
 
     const user = await User.findById(req.user._id);
-    if (!user.blockedUsers.includes(userId)) {
+    if (!user.blockedUsers.some((id) => id.toString() === userId.toString())) {
       user.blockedUsers.push(userId);
       await user.save();
     }

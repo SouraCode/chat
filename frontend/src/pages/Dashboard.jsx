@@ -13,7 +13,6 @@ import ChatWindow from '../components/ChatWindow';
 const Dashboard = () => {
   const { user, updateProfile, logout } = useAuth();
   const {
-    conversations,
     selectedConversation,
     setSelectedConversation,
     activeTab,
@@ -30,7 +29,6 @@ const Dashboard = () => {
   const [usersList, setUsersList] = useState([]);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [messageText, setMessageText] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
   const [showNewCommunityModal, setShowNewCommunityModal] = useState(false);
   const [newCommunityName, setNewCommunityName] = useState('');
   const [showSearchModal, setShowSearchModal] = useState(false);
@@ -97,7 +95,8 @@ const Dashboard = () => {
   const handleCreateCommunitySubmit = async (e) => {
     e.preventDefault();
     if (!newCommunityName.trim()) return;
-    await startCommunity(newCommunityName.trim());
+    const community = await startCommunity(newCommunityName.trim());
+    if (community) selectChat(community);
     setNewCommunityName('');
     setShowNewCommunityModal(false);
   };
@@ -124,10 +123,10 @@ const Dashboard = () => {
     } else {
       setMobileView('channels');
     }
-  }, [callState]);
+  }, [callState, selectedConversation]);
 
   return (
-    <div className="relative h-screen w-full flex items-center justify-center overflow-hidden bg-[#0c0c0f] font-sans p-0 sm:p-4 md:p-8">
+    <div className="relative h-[100dvh] w-full flex items-center justify-center overflow-hidden bg-[#0c0c0f] font-sans p-0 sm:p-4 md:p-8">
       {/* Ambient background glow layers */}
       <div className="ambient-glow ambient-glow-1"></div>
       <div className="ambient-glow ambient-glow-2"></div>
@@ -156,7 +155,10 @@ const Dashboard = () => {
           setSearchQuery={setSearchQuery}
           selectChat={selectChat}
           availableCommunities={availableCommunities}
-          joinCommunity={joinCommunity}
+          joinCommunity={async (communityId) => {
+            const community = await joinCommunity(communityId);
+            if (community) selectChat(community);
+          }}
           mobileView={mobileView}
           showProfileMenu={showProfileMenu}
           setShowProfileMenu={setShowProfileMenu}

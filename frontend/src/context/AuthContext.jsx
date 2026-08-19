@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 
 const AuthContext = createContext();
 
@@ -8,6 +8,12 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [loading, setLoading] = useState(true);
+
+  const clearAuthState = useCallback(() => {
+    localStorage.removeItem('token');
+    setToken('');
+    setUser(null);
+  }, []);
 
   // Set auth state on load
   useEffect(() => {
@@ -29,18 +35,18 @@ export const AuthProvider = ({ children }) => {
           setUser(data.user);
         } else {
           // Token expired or invalid
-          logout();
+          clearAuthState();
         }
       } catch (err) {
         console.error('Error fetching current user:', err);
-        logout();
+        clearAuthState();
       } finally {
         setLoading(false);
       }
     };
 
     fetchMe();
-  }, [token]);
+  }, [token, clearAuthState]);
 
   // Login handler
   const login = async (emailOrUsername, password) => {
@@ -108,9 +114,7 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       console.error('Error logging out on backend:', err);
     } finally {
-      localStorage.removeItem('token');
-      setToken('');
-      setUser(null);
+      clearAuthState();
     }
   };
 

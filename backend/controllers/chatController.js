@@ -11,6 +11,9 @@ exports.createOrGetDirectChat = async (req, res, next) => {
     if (!userId) {
       return res.status(400).json({ success: false, message: 'Please provide a userId to chat with' });
     }
+    if (userId.toString() === req.user._id.toString()) {
+      return res.status(400).json({ success: false, message: 'You cannot start a chat with yourself' });
+    }
 
     // Verify user exists
     const targetUser = await User.findById(userId);
@@ -21,7 +24,7 @@ exports.createOrGetDirectChat = async (req, res, next) => {
     // Find if a 1-to-1 conversation already exists between the two users
     let chat = await Conversation.findOne({
       type: 'direct',
-      participants: { $all: [req.user._id, userId] }
+      participants: { $all: [req.user._id, userId], $size: 2 }
     })
       .populate('participants', '-password')
       .populate({

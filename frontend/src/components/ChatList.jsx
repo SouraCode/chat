@@ -7,7 +7,6 @@ import {
   Video,
   PhoneIncoming,
   PhoneOutgoing,
-  PhoneOff,
   Settings,
   LogOut,
   Plus
@@ -54,7 +53,7 @@ const ChatList = ({
     return `${hours}:${minutes} ${ampm}`;
   };
 
-  const directConversations = conversations.filter(c => c.type === 'direct' && c.lastMessage);
+  const directConversations = conversations.filter(c => c.type === 'direct');
 
   // Filter friends for the horizontal carousel
   const uniqueFriends = directConversations
@@ -303,14 +302,12 @@ const ChatList = ({
           conversations
             .filter(c => {
               if (activeTab === 'chats' && c.type !== 'direct') return false;
-              if (c.type === 'direct' && !c.lastMessage) return false;
-
               if (searchQuery) {
                 if (c.type === 'community') {
                   return c.name.toLowerCase().includes(searchQuery.toLowerCase());
                 } else {
                   const peer = c.participants.find(p => p._id !== user?.id);
-                  return peer?.username.toLowerCase().includes(searchQuery.toLowerCase());
+                  return peer?.username?.toLowerCase().includes(searchQuery.toLowerCase());
                 }
               }
               return true;
