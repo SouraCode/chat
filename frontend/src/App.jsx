@@ -4,6 +4,7 @@ import { SocketProvider } from './context/SocketContext';
 import { ChatProvider } from './context/ChatContext';
 import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
+import PwaInstallPrompt from './components/PwaInstallPrompt';
 
 const MainContent = () => {
   const { token, loading } = useAuth();
@@ -35,6 +36,7 @@ function App() {
       <SocketProvider>
         <ChatProvider>
           <MainContent />
+          <PwaInstallPrompt />
         </ChatProvider>
       </SocketProvider>
     </AuthProvider>
