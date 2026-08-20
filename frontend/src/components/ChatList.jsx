@@ -16,8 +16,6 @@ const ChatList = ({
   searchQuery,
   setSearchQuery,
   selectChat,
-  availableCommunities,
-  joinCommunity,
   mobileView,
   showProfileMenu,
   setShowProfileMenu,
@@ -167,39 +165,7 @@ const ChatList = ({
           {activeTab === 'communities' ? 'Browse Communities' : activeTab === 'calls' ? 'Call History logs' : 'Recent Message Logs'}
         </div>
 
-        {activeTab === 'communities' ? (
-          <div className="space-y-2">
-            {availableCommunities.map((comm) => (
-              <div
-                key={comm._id}
-                className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <img
-                    src={comm.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${comm.name}`}
-                    alt={comm.name}
-                    className="h-10 w-10 rounded-xl"
-                  />
-                  <div className="text-left">
-                    <h4 className="font-semibold text-sm text-gray-200">{comm.name}</h4>
-                    <p className="text-[11px] text-gray-500">{comm.participants.length} active</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => joinCommunity(comm._id)}
-                  className="px-3 py-1 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white transition-colors"
-                >
-                  Join
-                </button>
-              </div>
-            ))}
-            {availableCommunities.length === 0 && (
-              <div className="text-center text-xs text-gray-600 py-6">
-                No joinable communities found
-              </div>
-            )}
-          </div>
-        ) : activeTab === 'calls' ? (
+        {activeTab === 'calls' ? (
           <div className="space-y-5">
             {/* History Logs */}
             <div className="space-y-2">
@@ -301,20 +267,15 @@ const ChatList = ({
         ) : (
           conversations
             .filter(c => {
-              if (activeTab === 'chats' && c.type !== 'direct') return false;
+              if (c.type !== 'direct') return false;
               if (searchQuery) {
-                if (c.type === 'community') {
-                  return c.name.toLowerCase().includes(searchQuery.toLowerCase());
-                } else {
-                  const peer = c.participants.find(p => p._id !== user?.id);
-                  return peer?.username?.toLowerCase().includes(searchQuery.toLowerCase());
-                }
+                const peer = c.participants.find(p => p._id !== user?.id);
+                return peer?.username?.toLowerCase().includes(searchQuery.toLowerCase());
               }
               return true;
             })
             .map((chat) => {
-              const isCommunity = chat.type === 'community';
-              const peer = isCommunity ? null : chat.participants.find(p => p._id !== user?.id);
+              const peer = chat.participants.find(p => p._id !== user?.id);
               const isOnline = peer ? onlineUsers.has(peer._id) : false;
 
               return (
@@ -329,15 +290,11 @@ const ChatList = ({
                 >
                   <div className="relative flex-shrink-0">
                     <img
-                      src={
-                        isCommunity
-                          ? chat.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${chat.name}`
-                          : peer?.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${peer?.username}`
-                      }
-                      alt={isCommunity ? chat.name : peer?.username}
+                      src={peer?.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${peer?.username}`}
+                      alt={peer?.username}
                       className="h-10 w-10 rounded-xl border border-white/5 object-cover bg-white/5"
                     />
-                    {!isCommunity && isOnline && (
+                    {isOnline && (
                       <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full bg-green-500 border-2 border-[#0c0c0f]"></span>
                     )}
                   </div>
@@ -345,7 +302,7 @@ const ChatList = ({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-0.5">
                       <h4 className="font-semibold text-sm text-gray-200 truncate">
-                        {isCommunity ? chat.name : peer?.username}
+                        {peer?.username}
                       </h4>
                       <span className="text-[10px] text-gray-500">
                         {chat.lastMessage ? formatTime(chat.lastMessage.createdAt) : formatTime(chat.updatedAt)}

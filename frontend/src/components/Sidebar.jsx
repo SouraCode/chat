@@ -26,7 +26,7 @@ const Sidebar = ({
     setActiveTab
   } = useChat();
 
-  const joinedCommunities = conversations.filter(c => c.type === 'community');
+
 
   return (
     <div className="hidden md:flex w-[270px] lg:w-[290px] flex-shrink-0 border-r border-white/5 flex-col bg-black/10">
@@ -107,49 +107,7 @@ const Sidebar = ({
         </button>
       </div>
 
-      {/* Communities listing */}
-      <div className="flex-1 flex flex-col min-h-0 border-t border-white/5 mt-2">
-        <div className="px-5 py-4 flex items-center justify-between text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-          <span>Communities</span>
-          <button
-            onClick={() => setShowNewCommunityModal(true)}
-            className="text-gray-400 hover:text-white focus:outline-none transition-colors"
-            title="Create Community"
-          >
-            <Plus size={14} />
-          </button>
-        </div>
 
-        {/* Scrollable list */}
-        <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
-          {joinedCommunities.map((comm) => (
-            <div
-              key={comm._id}
-              onClick={() => selectChat(comm)}
-              className={`flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-all ${
-                selectedConversation?._id === comm._id ? 'bg-white/5 border border-white/5' : 'hover:bg-white/5'
-              }`}
-            >
-              <img
-                src={comm.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${comm.name}`}
-                alt={comm.name}
-                className="h-10 w-10 rounded-xl bg-white/5 border border-white/5 object-cover"
-              />
-              <div className="flex-1 min-w-0 text-left">
-                <h4 className="font-semibold text-sm text-gray-200 truncate">{comm.name}</h4>
-                <p className="text-[11px] text-gray-500 flex items-center gap-1">
-                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500"></span> {comm.participants.length} members
-                </p>
-              </div>
-            </div>
-          ))}
-          {joinedCommunities.length === 0 && (
-            <div className="text-center py-6 text-xs text-gray-600">
-              No joined communities
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 };

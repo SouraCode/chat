@@ -20,8 +20,6 @@ const Dashboard = () => {
     setActiveTab,
     sendMessage,
     startDirectChat,
-    startCommunity,
-    joinCommunity,
     callState,
     isCallMinimized
   } = useChat();
@@ -30,40 +28,48 @@ const Dashboard = () => {
   const [usersList, setUsersList] = useState([]);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [messageText, setMessageText] = useState('');
-  const [showNewCommunityModal, setShowNewCommunityModal] = useState(false);
-  const [newCommunityName, setNewCommunityName] = useState('');
   const [showSearchModal, setShowSearchModal] = useState(false);
-  const [availableCommunities, setAvailableCommunities] = useState([]);
   const [isSearchingUsers, setIsSearchingUsers] = useState(false);
 
   // Mobile layout state: 'channels' | 'messages' | 'chat_window' | 'call_screen'
   const [mobileView, setMobileView] = useState('channels');
   const applyingBrowserNavigationRef = useRef(false);
 
-  // Store each selected chat in browser history so Back returns to the actual
-  // previous chat/page instead of closing the whole app.
+  // Initialize base history state on mount
   useEffect(() => {
-    if (!selectedConversation) return;
+    if (!window.history.state) {
+      window.history.replaceState({ activeTab: 'chats', chatConversationId: null }, '');
+    }
+  }, []);
+
+  // Store active tab and selected conversation in history
+  useEffect(() => {
     if (applyingBrowserNavigationRef.current) {
       applyingBrowserNavigationRef.current = false;
       return;
     }
-    if (window.history.state?.chatConversationId !== selectedConversation._id) {
-      window.history.pushState({ chatConversationId: selectedConversation._id }, '');
+    const currentState = window.history.state;
+    const nextConvoId = selectedConversation?._id || null;
+    if (currentState?.activeTab !== activeTab || currentState?.chatConversationId !== nextConvoId) {
+      window.history.pushState({ activeTab, chatConversationId: nextConvoId }, '');
     }
-  }, [selectedConversation]);
+  }, [activeTab, selectedConversation]);
 
   useEffect(() => {
     const handleBrowserBack = (event) => {
       // ChatContext owns Back during a call and minimizes it safely.
       if (callState !== 'idle') return;
 
-      const previousConversationId = event.state?.chatConversationId;
+      const state = event.state || {};
+      const previousConversationId = state.chatConversationId || null;
+      const previousTab = state.activeTab || 'chats';
+
+      applyingBrowserNavigationRef.current = true;
+      setActiveTab(previousTab);
+
       const previousConversation = conversations.find((chat) => chat._id === previousConversationId) || null;
-      applyingBrowserNavigationRef.current = Boolean(previousConversation);
       setSelectedConversation(previousConversation);
       setMobileView(previousConversation ? 'chat_window' : 'channels');
-      if (!previousConversation) setActiveTab('chats');
     };
     window.addEventListener('popstate', handleBrowserBack);
     return () => window.removeEventListener('popstate', handleBrowserBack);
@@ -110,42 +116,11 @@ const Dashboard = () => {
     }
   }, [searchQuery, showSearchModal]);
 
-  // Fetch joinable communities
-  const loadJoinableCommunities = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/communities`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (data.success) {
-        setAvailableCommunities(data.communities);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  useEffect(() => {
-    if (activeTab === 'communities') {
-      loadJoinableCommunities();
-    }
-  }, [activeTab]);
-
   const handleSend = (e) => {
     e.preventDefault();
     if (!messageText.trim()) return;
     sendMessage(messageText.trim());
     setMessageText('');
-  };
-
-  const handleCreateCommunitySubmit = async (e) => {
-    e.preventDefault();
-    if (!newCommunityName.trim()) return;
-    const community = await startCommunity(newCommunityName.trim());
-    if (community) selectChat(community);
-    setNewCommunityName('');
-    setShowNewCommunityModal(false);
   };
 
   // Change avatar image randomly
@@ -190,7 +165,6 @@ const Dashboard = () => {
           showProfileMenu={showProfileMenu}
           setShowProfileMenu={setShowProfileMenu}
           setShowSearchModal={setShowSearchModal}
-          setShowNewCommunityModal={setShowNewCommunityModal}
           changeAvatar={changeAvatar}
           selectChat={selectChat}
           mobileView={mobileView}
@@ -201,11 +175,6 @@ const Dashboard = () => {
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           selectChat={selectChat}
-          availableCommunities={availableCommunities}
-          joinCommunity={async (communityId) => {
-            const community = await joinCommunity(communityId);
-            if (community) selectChat(community);
-          }}
           mobileView={mobileView}
           showProfileMenu={showProfileMenu}
           setShowProfileMenu={setShowProfileMenu}
@@ -248,15 +217,6 @@ const Dashboard = () => {
             >
               <Video size={18} />
               <span className="text-[10px]">Calls</span>
-            </button>
-            <button
-              onClick={() => { setActiveTab('communities'); }}
-              className={`flex flex-col items-center gap-0.5 transition-all ${
-                activeTab === 'communities' ? 'text-blue-500 font-semibold scale-105' : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <Users size={18} />
-              <span className="text-[10px]">Groups</span>
             </button>
           </div>
         )}
@@ -334,43 +294,7 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* MODAL 2: Create Group Community */}
-      {showNewCommunityModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md px-4">
-          <div className="w-full max-w-sm glass-container rounded-3xl p-6 relative border border-white/10 shadow-2xl">
-            <button
-              onClick={() => setShowNewCommunityModal(false)}
-              className="absolute top-4 right-4 p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all"
-            >
-              <X size={18} />
-            </button>
 
-            <h3 className="text-lg font-bold text-gray-100 mb-4 text-left">Create Community Group</h3>
-            <form onSubmit={handleCreateCommunitySubmit} className="space-y-4">
-              <div className="text-left">
-                <label className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2 block">
-                  Community Name
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Design Enthusiasts"
-                  required
-                  value={newCommunityName}
-                  onChange={(e) => setNewCommunityName(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl glass-input text-sm"
-                  autoFocus
-                />
-              </div>
-              <button
-                type="submit"
-                className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-all active:scale-[0.98]"
-              >
-                Create Community Group
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
 
     </div>
   );

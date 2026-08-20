@@ -30,17 +30,7 @@ const Dock = ({ activeTab, setActiveTab }) => {
         >
           <Video size={20} />
         </button>
-        <button
-          onClick={() => setActiveTab('communities')}
-          className={`p-3 rounded-2xl transition-all duration-300 ${
-            activeTab === 'communities'
-              ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/25'
-              : 'text-gray-400 hover:text-white hover:bg-white/5'
-          }`}
-          title="Communities"
-        >
-          <Users size={20} />
-        </button>
+
       </div>
       <button
         onClick={logout}

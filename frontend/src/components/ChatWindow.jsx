@@ -28,7 +28,6 @@ const ChatWindow = ({
     messages,
     onlineUsers,
     startCall,
-    leaveCommunity,
     callState,
     currentCall,
     callStartTime,
@@ -86,8 +85,7 @@ const ChatWindow = ({
     );
   }
 
-  const isCommunity = selectedConversation.type === 'community';
-  const peer = isCommunity ? null : selectedConversation.participants.find(p => p._id !== user?.id);
+  const peer = selectedConversation.participants.find(p => p._id !== user?.id);
   const isOnline = peer ? onlineUsers.has(peer._id) : false;
 
   const isBlockedByMe = user?.blockedUsers?.some(id => id.toString() === peer?._id?.toString());
@@ -162,23 +160,17 @@ const ChatWindow = ({
           </button>
 
           <img
-            src={
-              isCommunity
-                ? selectedConversation.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${selectedConversation.name}`
-                : peer?.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${selectedConversation.name}`
-            }
+            src={peer?.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${selectedConversation.name}`}
             alt="Chat avatar"
             className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-white/5 border border-white/5 object-cover flex-shrink-0"
           />
 
           <div className="text-left">
             <h3 className="font-semibold text-sm text-gray-100">
-              {isCommunity ? selectedConversation.name : peer?.username}
+              {peer?.username}
             </h3>
             <span className="text-[10px] text-gray-500">
-              {isCommunity ? (
-                `${selectedConversation.participants.length} participants`
-              ) : isOnline ? (
+              {isOnline ? (
                 <span className="text-green-400 font-medium">Online</span>
               ) : (
                 'Offline'
@@ -189,46 +181,35 @@ const ChatWindow = ({
 
         {/* Header Actions */}
         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-          {!isCommunity ? (
+          {!isBlockedByMe && (
             <>
-              {!isBlockedByMe && (
-                <>
-                  <button
-                    onClick={() => startCall(peer._id, peer.username, peer.avatar, 'audio')}
-                    className="p-2 sm:p-2.5 rounded-xl glass-btn text-gray-400 hover:text-white transition-all"
-                    title="Start voice call"
-                  >
-                    <Phone size={18} />
-                  </button>
-                  <button
-                    onClick={() => startCall(peer._id, peer.username, peer.avatar, 'video')}
-                    className="p-2 sm:p-2.5 rounded-xl glass-btn text-gray-400 hover:text-white animate-pulse transition-all"
-                    title="Start video call"
-                  >
-                    <Video size={18} />
-                  </button>
-                </>
-              )}
               <button
-                onClick={handleBlockToggle}
-                className={`p-2 sm:p-2.5 rounded-xl border transition-all ${
-                  isBlockedByMe
-                    ? 'bg-red-500/20 border-red-500/30 text-red-400 hover:bg-red-500/30'
-                    : 'glass-btn text-gray-400 hover:text-red-400 hover:border-red-500/20'
-                }`}
-                title={isBlockedByMe ? 'Unblock User' : 'Block User'}
+                onClick={() => startCall(peer._id, peer.username, peer.avatar, 'audio')}
+                className="p-2 sm:p-2.5 rounded-xl glass-btn text-gray-400 hover:text-white transition-all"
+                title="Start voice call"
               >
-                <Ban size={18} />
+                <Phone size={18} />
+              </button>
+              <button
+                onClick={() => startCall(peer._id, peer.username, peer.avatar, 'video')}
+                className="p-2 sm:p-2.5 rounded-xl glass-btn text-gray-400 hover:text-white animate-pulse transition-all"
+                title="Start video call"
+              >
+                <Video size={18} />
               </button>
             </>
-          ) : (
-            <button
-              onClick={() => leaveCommunity(selectedConversation._id)}
-              className="px-3 py-1.5 rounded-xl border border-red-500/20 text-red-400 hover:bg-red-500/10 text-xs font-semibold transition-all"
-            >
-              Leave
-            </button>
           )}
+          <button
+            onClick={handleBlockToggle}
+            className={`p-2 sm:p-2.5 rounded-xl border transition-all ${
+              isBlockedByMe
+                ? 'bg-red-500/20 border-red-500/30 text-red-400 hover:bg-red-500/30'
+                : 'glass-btn text-gray-400 hover:text-red-400 hover:border-red-500/20'
+            }`}
+            title={isBlockedByMe ? 'Unblock User' : 'Block User'}
+          >
+            <Ban size={18} />
+          </button>
         </div>
       </div>
 
@@ -248,11 +229,7 @@ const ChatWindow = ({
                   />
                 )}
                 <div className="flex flex-col">
-                  {!isMe && isCommunity && (
-                    <span className="text-[10px] text-gray-500 mb-1 ml-1 text-left">
-                      {msg.sender.username}
-                    </span>
-                  )}
+
                   <div className={`px-4 py-3 rounded-2xl text-sm text-left ${
                     isMe
                       ? 'bg-gradient-to-tr from-blue-600 to-indigo-600 text-white rounded-br-none shadow-md shadow-blue-600/15'

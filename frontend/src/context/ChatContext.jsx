@@ -40,6 +40,7 @@ export const ChatProvider = ({ children }) => {
   const callTimeoutRef = useRef(null);
   const soundContextRef = useRef(null);
   const callHistoryPushedRef = useRef(false);
+  const messagesCacheRef = useRef({});
 
   selectedConversationRef.current = selectedConversation;
   callStateRef.current = callState;
@@ -195,6 +196,7 @@ export const ChatProvider = ({ children }) => {
       setCallState('idle');
       setCurrentCall(null);
       stopMedia();
+      messagesCacheRef.current = {};
     }
   }, [token, user, stopMedia]);
 
@@ -240,13 +242,25 @@ export const ChatProvider = ({ children }) => {
         setMessages([]);
         return;
       }
+      
+      // Load cached messages immediately for instant swap
+      const cached = messagesCacheRef.current[selectedConversation._id];
+      if (cached) {
+        setMessages(cached);
+      } else {
+        setMessages([]);
+      }
+
       try {
         const res = await fetch(`${API_URL}/api/messages/${selectedConversation._id}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = await res.json();
         if (data.success) {
-          setMessages(data.messages);
+          messagesCacheRef.current[selectedConversation._id] = data.messages;
+          if (selectedConversationRef.current?._id === selectedConversation._id) {
+            setMessages(data.messages);
+          }
         }
 
         // Join conversation socket room
@@ -307,7 +321,11 @@ export const ChatProvider = ({ children }) => {
       type,
       createdAt: new Date().toISOString()
     };
-    setMessages((prev) => [...prev, optimisticMessage]);
+    setMessages((prev) => {
+      const next = [...prev, optimisticMessage];
+      messagesCacheRef.current[selectedConversation._id] = next;
+      return next;
+    });
 
     // Use socket if connected, fallback to REST
     if (socket) {
@@ -372,67 +390,7 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  // Create group community
-  const startCommunity = async (name) => {
-    try {
-      const res = await fetch(`${API_URL}/api/communities`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ name })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setConversations(prev => [data.community, ...prev]);
-        setSelectedConversation(data.community);
-        return data.community;
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
-  // Join group community
-  const joinCommunity = async (communityId) => {
-    try {
-      const res = await fetch(`${API_URL}/api/communities/${communityId}/join`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (data.success) {
-        setConversations(prev => [data.community, ...prev]);
-        setSelectedConversation(data.community);
-        return true;
-      }
-    } catch (err) {
-      console.error(err);
-    }
-    return false;
-  };
-
-  // Leave community
-  const leaveCommunity = async (communityId) => {
-    try {
-      const res = await fetch(`${API_URL}/api/communities/${communityId}/leave`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (data.success) {
-        setConversations(prev => prev.filter(c => c._id !== communityId));
-        if (selectedConversation?._id === communityId) {
-          setSelectedConversation(null);
-        }
-        return true;
-      }
-    } catch (err) {
-      console.error(err);
-    }
-    return false;
-  };
 
   const startCall = async (peerId, peerName, peerAvatar, type = 'audio') => {
     if (!socket) return;
@@ -526,19 +484,28 @@ export const ChatProvider = ({ children }) => {
     // Handle message received
     socket.on('messageReceived', (message) => {
       if (String(message.sender?._id) !== String(user?.id)) playNotificationSound('message');
-      // If message is in the selected conversation
-      if (selectedConversationRef.current && String(message.conversation) === String(selectedConversationRef.current._id)) {
-        setMessages(prev => {
-          // Check if message is already added
-          if (prev.some(m => m._id === message._id)) return prev;
-          const optimisticIndex = prev.findIndex((m) => m.clientMessageId && m.clientMessageId === message.clientMessageId);
-          if (optimisticIndex !== -1) {
-            const next = [...prev];
-            next[optimisticIndex] = message;
-            return next;
-          }
-          return [...prev, message];
-        });
+      
+      const convoId = message.conversation;
+      if (!messagesCacheRef.current[convoId]) {
+        messagesCacheRef.current[convoId] = [];
+      }
+      
+      // Update cache
+      const isDuplicate = messagesCacheRef.current[convoId].some(m => m._id === message._id);
+      if (!isDuplicate) {
+        const optimisticIndex = messagesCacheRef.current[convoId].findIndex(
+          m => m.clientMessageId && m.clientMessageId === message.clientMessageId
+        );
+        if (optimisticIndex !== -1) {
+          messagesCacheRef.current[convoId][optimisticIndex] = message;
+        } else {
+          messagesCacheRef.current[convoId] = [...messagesCacheRef.current[convoId], message];
+        }
+      }
+      
+      // If message is in the selected conversation, update messages state
+      if (selectedConversationRef.current && String(convoId) === String(selectedConversationRef.current._id)) {
+        setMessages(messagesCacheRef.current[convoId]);
       }
 
       // Update last message in conversation list
@@ -720,9 +687,6 @@ export const ChatProvider = ({ children }) => {
         setActiveTab,
         sendMessage,
         startDirectChat,
-        startCommunity,
-        joinCommunity,
-        leaveCommunity,
         fetchConversations,
         
         // Call system
