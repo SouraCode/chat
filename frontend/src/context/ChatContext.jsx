@@ -529,7 +529,7 @@ export const ChatProvider = ({ children }) => {
             return { ...c, lastMessage: message, updatedAt: message.createdAt };
           }
           return c;
-        }).sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+        });
       });
     });
 

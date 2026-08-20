@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth, API_URL } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
 import { X, MessageSquare, Video, Users } from 'lucide-react';
@@ -13,6 +13,7 @@ import ChatWindow from '../components/ChatWindow';
 const Dashboard = () => {
   const { user, updateProfile, logout } = useAuth();
   const {
+    conversations,
     selectedConversation,
     setSelectedConversation,
     activeTab,
@@ -37,6 +38,36 @@ const Dashboard = () => {
 
   // Mobile layout state: 'channels' | 'messages' | 'chat_window' | 'call_screen'
   const [mobileView, setMobileView] = useState('channels');
+  const applyingBrowserNavigationRef = useRef(false);
+
+  // Store each selected chat in browser history so Back returns to the actual
+  // previous chat/page instead of closing the whole app.
+  useEffect(() => {
+    if (!selectedConversation) return;
+    if (applyingBrowserNavigationRef.current) {
+      applyingBrowserNavigationRef.current = false;
+      return;
+    }
+    if (window.history.state?.chatConversationId !== selectedConversation._id) {
+      window.history.pushState({ chatConversationId: selectedConversation._id }, '');
+    }
+  }, [selectedConversation]);
+
+  useEffect(() => {
+    const handleBrowserBack = (event) => {
+      // ChatContext owns Back during a call and minimizes it safely.
+      if (callState !== 'idle') return;
+
+      const previousConversationId = event.state?.chatConversationId;
+      const previousConversation = conversations.find((chat) => chat._id === previousConversationId) || null;
+      applyingBrowserNavigationRef.current = Boolean(previousConversation);
+      setSelectedConversation(previousConversation);
+      setMobileView(previousConversation ? 'chat_window' : 'channels');
+      if (!previousConversation) setActiveTab('chats');
+    };
+    window.addEventListener('popstate', handleBrowserBack);
+    return () => window.removeEventListener('popstate', handleBrowserBack);
+  }, [callState, conversations, setActiveTab, setSelectedConversation]);
 
   // Fetch users for searching
   useEffect(() => {

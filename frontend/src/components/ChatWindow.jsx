@@ -65,6 +65,10 @@ const ChatWindow = ({
   };
 
   const handleBack = () => {
+    if (window.history.state?.chatConversationId) {
+      window.history.back();
+      return;
+    }
     setSelectedConversation(null);
     setMobileView('channels');
   };
