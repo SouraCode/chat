@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useChat } from '../context/ChatContext';
+import CallDurationTimer from './CallDurationTimer';
 import {
   ArrowLeft,
   UserCheck,
@@ -19,7 +20,7 @@ const CallPanel = ({ mobileView, setMobileView }) => {
   const {
     callState,
     currentCall,
-    callDuration,
+    callStartTime,
     callSettings,
     setCallSettings,
     acceptCall,
@@ -53,11 +54,7 @@ const CallPanel = ({ mobileView, setMobileView }) => {
     if (remoteVideoRef.current) remoteVideoRef.current.muted = !callSettings.isVolumeOn;
   }, [localStream, remoteStream, callSettings]);
 
-  const formatTimer = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  };
+
 
   const handleEndCall = () => {
     endCall();
@@ -126,7 +123,9 @@ const CallPanel = ({ mobileView, setMobileView }) => {
         <span className={`px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-xs text-gray-400 tracking-wider ${isVideoCall ? 'hidden md:inline-flex' : ''}`}>
           {callState === 'dialing' && 'Dialing call...'}
           {callState === 'ringing' && 'Incoming Call...'}
-          {callState === 'connected' && `Connected • ${formatTimer(callDuration)}`}
+          {callState === 'connected' && (
+            <>Connected • <CallDurationTimer callStartTime={callStartTime} /></>
+          )}
         </span>
       </div>
 
@@ -136,14 +135,16 @@ const CallPanel = ({ mobileView, setMobileView }) => {
       }`}>
         <div className="glass-panel px-4 py-4 sm:px-8 sm:py-5 rounded-3xl flex items-center justify-center flex-wrap gap-3 sm:gap-6 border border-white/5">
           {/* Camera Control */}
-          <button
-            onClick={() => setCallSettings(prev => ({ ...prev, isCameraOff: !prev.isCameraOff }))}
-            className={`p-3.5 rounded-full transition-all duration-300 ${
-              callSettings.isCameraOff ? 'bg-red-500/20 text-red-400' : 'glass-btn text-gray-300 hover:text-white'
-            }`}
-          >
-            {callSettings.isCameraOff ? <VideoOff size={20} /> : <Camera size={20} />}
-          </button>
+          {isVideoCall && (
+            <button
+              onClick={() => setCallSettings(prev => ({ ...prev, isCameraOff: !prev.isCameraOff }))}
+              className={`p-3.5 rounded-full transition-all duration-300 ${
+                callSettings.isCameraOff ? 'bg-red-500/20 text-red-400' : 'glass-btn text-gray-300 hover:text-white'
+              }`}
+            >
+              {callSettings.isCameraOff ? <VideoOff size={20} /> : <Camera size={20} />}
+            </button>
+          )}
 
           {/* Microphone Control */}
           <button

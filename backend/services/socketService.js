@@ -253,27 +253,33 @@ const initSocket = (server) => {
     // Handle Disconnect
     socket.on('disconnect', async () => {
       console.log(`User disconnected: ${socket.user.username} (${userId})`);
-      userSocketMap.delete(userId);
-      const peerId = activeCalls.get(userId);
-      clearCallFor(userId, peerId);
-      const peerSocketId = peerId && userSocketMap.get(peerId);
-      if (peerSocketId) io.to(peerSocketId).emit('callEnded');
+      
+      // Only clean up and set offline if this is the active socket for the user
+      if (userSocketMap.get(userId) === socket.id) {
+        userSocketMap.delete(userId);
+        const peerId = activeCalls.get(userId);
+        clearCallFor(userId, peerId);
+        const peerSocketId = peerId && userSocketMap.get(peerId);
+        if (peerSocketId) io.to(peerSocketId).emit('callEnded');
 
-      try {
-        // Update user status in database
-        await User.findByIdAndUpdate(userId, {
-          status: 'offline',
-          lastSeen: new Date()
-        });
+        try {
+          // Update user status in database
+          await User.findByIdAndUpdate(userId, {
+            status: 'offline',
+            lastSeen: new Date()
+          });
 
-        // Notify everyone
-        io.emit('userStatusChange', {
-          userId,
-          status: 'offline',
-          lastSeen: new Date()
-        });
-      } catch (err) {
-        console.error(err);
+          // Notify everyone
+          io.emit('userStatusChange', {
+            userId,
+            status: 'offline',
+            lastSeen: new Date()
+          });
+        } catch (err) {
+          console.error(err);
+        }
+      } else {
+        console.log(`Stale socket disconnected for user ${socket.user.username}, keeping online status.`);
       }
     });
   });

@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
+import CallDurationTimer from './CallDurationTimer';
 import {
   ArrowLeft,
   Phone,
@@ -30,7 +31,7 @@ const ChatWindow = ({
     leaveCommunity,
     callState,
     currentCall,
-    callDuration,
+    callStartTime,
     isCallMinimized,
     setIsCallMinimized,
     endCall,
@@ -38,11 +39,7 @@ const ChatWindow = ({
     setCallSettings
   } = useChat();
 
-  const formatTimeLabel = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  };
+
 
   const scrollRef = useRef(null);
 
@@ -117,7 +114,7 @@ const ChatWindow = ({
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
             </span>
             <span className="text-xs font-semibold text-gray-100 flex items-center gap-1.5">
-              Active Call with {currentCall.peerName} ({formatTimeLabel(callDuration)})
+              Active Call with {currentCall.peerName} (<CallDurationTimer callStartTime={callStartTime} />)
             </span>
           </div>
           <div className="flex items-center gap-3">
@@ -154,7 +151,7 @@ const ChatWindow = ({
       )}
 
       {/* Active Chat Header */}
-      <div className="p-4 sm:p-5 border-b border-white/5 flex items-center justify-between gap-2 bg-black/[0.06]">
+      <div className="p-4 sm:p-5 border-b border-white/5 flex items-center justify-between gap-2 bg-black/[0.06] flex-shrink-0">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           {/* Back arrow on Mobile */}
           <button
@@ -274,7 +271,7 @@ const ChatWindow = ({
       </div>
 
       {/* Message input footer form */}
-      <form onSubmit={handleSend} className="p-3 sm:p-4 lg:px-6 border-t border-white/5 flex gap-2 sm:gap-3 bg-black/[0.08]">
+      <form onSubmit={handleSend} className="p-3 sm:p-4 lg:px-6 border-t border-white/5 flex gap-2 sm:gap-3 bg-black/[0.08] flex-shrink-0">
         <input
           type="text"
           value={messageText}

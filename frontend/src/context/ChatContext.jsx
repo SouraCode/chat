@@ -26,7 +26,7 @@ export const ChatProvider = ({ children }) => {
   // Call simulation states
   const [callState, setCallState] = useState('idle'); // 'idle' | 'dialing' | 'ringing' | 'connected'
   const [currentCall, setCurrentCall] = useState(null); // { peerId, peerName, peerAvatar, isCaller, type }
-  const [callDuration, setCallDuration] = useState(0);
+  const [callStartTime, setCallStartTime] = useState(null);
   const [callSettings, setCallSettings] = useState({ isMuted: false, isCameraOff: false, isVolumeOn: true });
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
@@ -36,7 +36,7 @@ export const ChatProvider = ({ children }) => {
   const selectedConversationRef = useRef(selectedConversation);
   const callStateRef = useRef(callState);
   const currentCallRef = useRef(currentCall);
-  const callDurationRef = useRef(callDuration);
+  const callStartTimeRef = useRef(null);
   const callTimeoutRef = useRef(null);
   const soundContextRef = useRef(null);
   const callHistoryPushedRef = useRef(false);
@@ -44,7 +44,7 @@ export const ChatProvider = ({ children }) => {
   selectedConversationRef.current = selectedConversation;
   callStateRef.current = callState;
   currentCallRef.current = currentCall;
-  callDurationRef.current = callDuration;
+  callStartTimeRef.current = callStartTime;
 
   // Call history & minimization states
   const [isCallMinimized, setIsCallMinimized] = useState(false);
@@ -94,6 +94,10 @@ export const ChatProvider = ({ children }) => {
       clearTimeout(callTimeoutRef.current);
       callTimeoutRef.current = null;
     }
+    // Stop remote tracks via receivers first
+    peerConnectionRef.current?.getReceivers().forEach((receiver) => {
+      receiver.track?.stop();
+    });
     peerConnectionRef.current?.close();
     peerConnectionRef.current = null;
     localStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -101,6 +105,8 @@ export const ChatProvider = ({ children }) => {
     pendingCandidatesRef.current = [];
     setLocalStream(null);
     setRemoteStream(null);
+    setCallStartTime(null);
+    callStartTimeRef.current = null;
   }, []);
 
   const playNotificationSound = useCallback((kind = 'message') => {
@@ -138,13 +144,32 @@ export const ChatProvider = ({ children }) => {
 
   const createPeerConnection = useCallback((peerId, stream) => {
     const connection = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' }
+      ]
     });
     stream.getTracks().forEach((track) => connection.addTrack(track, stream));
     connection.onicecandidate = ({ candidate }) => {
       if (candidate) socket?.emit('iceCandidate', { to: peerId, candidate });
     };
-    connection.ontrack = ({ streams }) => setRemoteStream(streams[0]);
+    connection.ontrack = (event) => {
+      if (event.streams && event.streams[0]) {
+        setRemoteStream(event.streams[0]);
+      } else {
+        setRemoteStream((prev) => {
+          if (prev) {
+            const next = new MediaStream(prev.getTracks());
+            next.addTrack(event.track);
+            return next;
+          }
+          return new MediaStream([event.track]);
+        });
+      }
+    };
     connection.onconnectionstatechange = () => {
       if (connection.connectionState === 'failed') {
         socket?.emit('endCall', { to: peerId });
@@ -242,25 +267,15 @@ export const ChatProvider = ({ children }) => {
     };
   }, [selectedConversation, token, socket]);
 
-  // Handle Call Duration Counter
-  useEffect(() => {
-    let interval = null;
-    if (callState === 'connected') {
-      interval = setInterval(() => {
-        setCallDuration(prev => prev + 1);
-      }, 1000);
-    } else {
-      setCallDuration(0);
-    }
-    return () => clearInterval(interval);
-  }, [callState]);
-
   // Keep the app open when the Android/browser back gesture is used during a
   // call. The gesture minimizes the call instead of navigating away or closing
   // the installed PWA.
   useEffect(() => {
     if (callState === 'idle') {
-      callHistoryPushedRef.current = false;
+      if (callHistoryPushedRef.current || window.history.state?.activeChatCall) {
+        callHistoryPushedRef.current = false;
+        window.history.back();
+      }
       return undefined;
     }
 
@@ -458,6 +473,9 @@ export const ChatProvider = ({ children }) => {
       pendingCandidatesRef.current = [];
       const answer = await connection.createAnswer();
       await connection.setLocalDescription(answer);
+      const startTime = Date.now();
+      setCallStartTime(startTime);
+      callStartTimeRef.current = startTime;
       setCallState('connected');
       setCallSettings({ isMuted: false, isCameraOff: false, isVolumeOn: true });
       socket.emit('answerCall', { to: currentCall.peerId, signal: answer });
@@ -487,8 +505,9 @@ export const ChatProvider = ({ children }) => {
     
     // Log call outcome
     if (callState === 'connected') {
-      addCallHistory(currentCall.peerId, currentCall.peerName, currentCall.peerAvatar, currentCall.type, 'completed', currentCall.isCaller ? 'outgoing' : 'incoming', callDuration);
-      logCallToChat(currentCall.peerId, `📞 ${currentCall.type === 'video' ? 'Video' : 'Voice'} Call ended • ${formatTimer(callDuration)}`);
+      const duration = callStartTimeRef.current ? Math.floor((Date.now() - callStartTimeRef.current) / 1000) : 0;
+      addCallHistory(currentCall.peerId, currentCall.peerName, currentCall.peerAvatar, currentCall.type, 'completed', currentCall.isCaller ? 'outgoing' : 'incoming', duration);
+      logCallToChat(currentCall.peerId, `📞 ${currentCall.type === 'video' ? 'Video' : 'Voice'} Call ended • ${formatTimer(duration)}`);
     } else {
       addCallHistory(currentCall.peerId, currentCall.peerName, currentCall.peerAvatar, currentCall.type, 'cancelled', 'outgoing', 0);
       logCallToChat(currentCall.peerId, `📞 Cancelled ${currentCall.type === 'video' ? 'Video' : 'Voice'} Call`);
@@ -606,6 +625,9 @@ export const ChatProvider = ({ children }) => {
           clearTimeout(callTimeoutRef.current);
           callTimeoutRef.current = null;
         }
+        const startTime = Date.now();
+        setCallStartTime(startTime);
+        callStartTimeRef.current = startTime;
         setCallState('connected');
       } catch (error) {
         console.error('Unable to establish call:', error);
@@ -658,7 +680,8 @@ export const ChatProvider = ({ children }) => {
       if (currentCallRef.current) {
         const call = currentCallRef.current;
         if (callStateRef.current === 'connected') {
-          addCallHistory(call.peerId, call.peerName, call.peerAvatar, call.type, 'completed', call.isCaller ? 'outgoing' : 'incoming', callDurationRef.current);
+          const duration = callStartTimeRef.current ? Math.floor((Date.now() - callStartTimeRef.current) / 1000) : 0;
+          addCallHistory(call.peerId, call.peerName, call.peerAvatar, call.type, 'completed', call.isCaller ? 'outgoing' : 'incoming', duration);
         } else {
           addCallHistory(call.peerId, call.peerName, call.peerAvatar, call.type, 'missed', 'incoming', 0);
         }
@@ -705,7 +728,7 @@ export const ChatProvider = ({ children }) => {
         // Call system
         callState,
         currentCall,
-        callDuration,
+        callStartTime,
         callSettings,
         setCallSettings,
         localStream,

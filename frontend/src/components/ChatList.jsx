@@ -66,7 +66,7 @@ const ChatList = ({
       mobileView === 'channels' ? 'flex' : 'hidden md:flex'
     }`}>
       {/* Search bar */}
-      <div className="p-4 sm:p-5 pb-3 flex items-center gap-3 border-b border-white/5">
+      <div className="p-4 sm:p-5 pb-3 flex items-center gap-3 border-b border-white/5 flex-shrink-0">
         {/* Mobile Profile Settings Trigger */}
         <div className="relative md:hidden flex-shrink-0">
           <img
@@ -126,7 +126,7 @@ const ChatList = ({
 
       {/* Online Users Horizontal Row */}
       {activeTab !== 'communities' && (
-        <div className="px-5 py-3 border-b border-white/5">
+        <div className="px-5 py-3 border-b border-white/5 flex-shrink-0">
           <div className="text-left text-[11px] font-semibold text-gray-500 mb-2.5 uppercase tracking-wider">
             Active Friends
           </div>
