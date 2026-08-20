@@ -11,7 +11,8 @@ import {
   Volume2,
   VolumeX,
   Phone,
-  X
+  X,
+  Maximize2
 } from 'lucide-react';
 
 const CallPanel = ({ mobileView, setMobileView }) => {
@@ -30,6 +31,15 @@ const CallPanel = ({ mobileView, setMobileView }) => {
   } = useChat();
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
+  const videoContainerRef = useRef(null);
+
+  const openVideoFullscreen = async () => {
+    try {
+      await videoContainerRef.current?.requestFullscreen?.();
+    } catch (error) {
+      console.warn('Fullscreen video is not available:', error);
+    }
+  };
 
   useEffect(() => {
     if (localVideoRef.current) localVideoRef.current.srcObject = localStream;
@@ -68,6 +78,11 @@ const CallPanel = ({ mobileView, setMobileView }) => {
           <ArrowLeft size={20} />
         </button>
         <div className="flex gap-2">
+          {currentCall?.type === 'video' && (
+            <button onClick={openVideoFullscreen} className="p-2.5 rounded-xl glass-btn hover:text-white transition-all" title="Fullscreen video">
+              <Maximize2 size={20} />
+            </button>
+          )}
           <button className="p-2.5 rounded-xl glass-btn hover:text-white transition-all">
             <UserCheck size={20} />
           </button>
@@ -80,7 +95,7 @@ const CallPanel = ({ mobileView, setMobileView }) => {
       {/* Calling profile area */}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-start sm:justify-center p-4">
         {currentCall?.type === 'video' && (localStream || remoteStream) && (
-          <div className="relative w-full max-w-5xl aspect-video min-h-48 rounded-3xl overflow-hidden bg-black border border-white/10 shadow-2xl mb-6">
+          <div ref={videoContainerRef} className="relative w-full max-w-6xl aspect-video min-h-[52vh] sm:min-h-[60vh] rounded-3xl overflow-hidden bg-black border border-white/10 shadow-2xl mb-6">
             {remoteStream ? (
               <video ref={remoteVideoRef} autoPlay playsInline className="h-full w-full object-cover" />
             ) : (

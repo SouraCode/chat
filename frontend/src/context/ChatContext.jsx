@@ -39,6 +39,7 @@ export const ChatProvider = ({ children }) => {
   const callDurationRef = useRef(callDuration);
   const callTimeoutRef = useRef(null);
   const soundContextRef = useRef(null);
+  const callHistoryPushedRef = useRef(false);
 
   selectedConversationRef.current = selectedConversation;
   callStateRef.current = callState;
@@ -252,6 +253,30 @@ export const ChatProvider = ({ children }) => {
       setCallDuration(0);
     }
     return () => clearInterval(interval);
+  }, [callState]);
+
+  // Keep the app open when the Android/browser back gesture is used during a
+  // call. The gesture minimizes the call instead of navigating away or closing
+  // the installed PWA.
+  useEffect(() => {
+    if (callState === 'idle') {
+      callHistoryPushedRef.current = false;
+      return undefined;
+    }
+
+    if (!callHistoryPushedRef.current) {
+      window.history.pushState({ activeChatCall: true }, '');
+      callHistoryPushedRef.current = true;
+    }
+
+    const keepCallOpen = () => {
+      if (callStateRef.current !== 'idle') {
+        window.history.pushState({ activeChatCall: true }, '');
+        setIsCallMinimized(true);
+      }
+    };
+    window.addEventListener('popstate', keepCallOpen);
+    return () => window.removeEventListener('popstate', keepCallOpen);
   }, [callState]);
 
   // Send message helper

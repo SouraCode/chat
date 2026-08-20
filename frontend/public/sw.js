@@ -35,3 +35,33 @@ self.addEventListener('fetch', (event) => {
     }))
   );
 });
+
+// A deployed backend can send a Web Push payload while the PWA is closed.
+// Payload format: { title, body, url, tag }. This worker displays it without
+// requiring an open WebSocket connection.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data?.text() };
+  }
+  const title = data.title || 'Chat Space';
+  event.waitUntil(self.registration.showNotification(title, {
+    body: data.body || 'You have a new message or call.',
+    icon: '/app-icon.svg',
+    badge: '/app-icon.svg',
+    tag: data.tag || 'chat-space-notification',
+    renotify: Boolean(data.renotify),
+    data: { url: data.url || '/' }
+  }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = new URL(event.notification.data?.url || '/', self.location.origin).href;
+  event.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+    const existing = windows.find((client) => client.url === targetUrl);
+    return existing ? existing.focus() : clients.openWindow(targetUrl);
+  }));
+});
