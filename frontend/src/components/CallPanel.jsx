@@ -78,15 +78,15 @@ const CallPanel = ({ mobileView, setMobileView }) => {
       </div>
 
       {/* Calling profile area */}
-      <div className="flex-1 flex flex-col items-center justify-center p-4">
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-start sm:justify-center p-4">
         {currentCall?.type === 'video' && (localStream || remoteStream) && (
-          <div className="relative w-full max-w-3xl aspect-video rounded-3xl overflow-hidden bg-black border border-white/10 shadow-2xl mb-6">
+          <div className="relative w-full max-w-5xl aspect-video min-h-48 rounded-3xl overflow-hidden bg-black border border-white/10 shadow-2xl mb-6">
             {remoteStream ? (
               <video ref={remoteVideoRef} autoPlay playsInline className="h-full w-full object-cover" />
             ) : (
               <div className="h-full w-full flex items-center justify-center text-sm text-gray-400">Waiting for the other person to join…</div>
             )}
-            <video ref={localVideoRef} autoPlay playsInline muted className="absolute bottom-3 right-3 h-24 w-32 sm:h-32 sm:w-44 rounded-2xl object-cover bg-[#1b1b22] border border-white/10 shadow-lg" />
+            <video ref={localVideoRef} autoPlay playsInline muted className="absolute bottom-3 right-3 h-28 w-36 sm:h-36 sm:w-52 rounded-2xl object-cover bg-[#1b1b22] border border-white/10 shadow-lg" />
           </div>
         )}
         {currentCall?.type === 'audio' && remoteStream && <audio ref={remoteVideoRef} autoPlay />}

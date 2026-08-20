@@ -7,6 +7,13 @@ const Conversation = require('../models/Conversation');
 
 // Map to track active user socket mappings: userId -> socketId
 const userSocketMap = new Map();
+// A user can only be in one ringing or connected call at a time.
+const activeCalls = new Map();
+
+const clearCallFor = (userId, peerId) => {
+  activeCalls.delete(userId);
+  if (peerId) activeCalls.delete(peerId.toString());
+};
 
 const initSocket = (server) => {
   const io = socketIO(server, {
@@ -149,9 +156,12 @@ const initSocket = (server) => {
           .populate('sender', 'username avatar status')
           .lean();
 
-        // Broadcast new message to all users in the chat room
-        io.to(conversationId).emit('messageReceived', populatedMessage);
-        socket.emit('messageReceived', populatedMessage);
+        // Deliver through each participant's personal room. Users stay in this
+        // room even when they have another conversation open, so notifications
+        // and unread chat updates do not depend on the active chat room.
+        conversation.participants.forEach((participantId) => {
+          io.to(participantId.toString()).emit('messageReceived', populatedMessage);
+        });
       } catch (err) {
         console.error('Socket sendMessage error:', err.message);
         socket.emit('errorMsg', { message: 'Failed to send message via socket' });
@@ -186,15 +196,20 @@ const initSocket = (server) => {
       }
 
       const targetSocketId = userSocketMap.get(userToCall);
-      if (targetSocketId) {
-        io.to(targetSocketId).emit('incomingCall', {
-          signal: signalData,
-          from,
-          name,
-          avatar: socket.user.avatar,
-          type: type === 'audio' ? 'audio' : 'video'
-        });
+      if (!targetSocketId) return socket.emit('callUnavailable');
+      if (activeCalls.has(userId) || activeCalls.has(userToCall.toString())) {
+        return socket.emit('callBusy');
       }
+
+      activeCalls.set(userId, userToCall.toString());
+      activeCalls.set(userToCall.toString(), userId);
+      io.to(targetSocketId).emit('incomingCall', {
+        signal: signalData,
+        from,
+        name,
+        avatar: socket.user.avatar,
+        type: type === 'audio' ? 'audio' : 'video'
+      });
     });
 
     // 2. Answer Call
@@ -215,10 +230,13 @@ const initSocket = (server) => {
 
     // 3. Decline Call
     socket.on('declineCall', (data) => {
-      const { to } = data;
+      const { to, reason } = data;
       const callerSocketId = userSocketMap.get(to);
+      clearCallFor(userId, to);
       if (callerSocketId) {
-        io.to(callerSocketId).emit('callDeclined', { message: 'Call declined by user' });
+        io.to(callerSocketId).emit(reason === 'busy' ? 'callBusy' : 'callDeclined', {
+          message: reason === 'busy' ? 'User is busy' : 'Call declined by user'
+        });
       }
     });
 
@@ -226,6 +244,7 @@ const initSocket = (server) => {
     socket.on('endCall', (data) => {
       const { to } = data;
       const targetSocketId = userSocketMap.get(to);
+      clearCallFor(userId, to);
       if (targetSocketId) {
         io.to(targetSocketId).emit('callEnded');
       }
@@ -235,6 +254,10 @@ const initSocket = (server) => {
     socket.on('disconnect', async () => {
       console.log(`User disconnected: ${socket.user.username} (${userId})`);
       userSocketMap.delete(userId);
+      const peerId = activeCalls.get(userId);
+      clearCallFor(userId, peerId);
+      const peerSocketId = peerId && userSocketMap.get(peerId);
+      if (peerSocketId) io.to(peerSocketId).emit('callEnded');
 
       try {
         // Update user status in database

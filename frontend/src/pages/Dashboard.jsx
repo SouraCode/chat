@@ -185,7 +185,7 @@ const Dashboard = () => {
 
         {/* COLUMN 3: Messaging Conversation Window OR Active Call Panel */}
         {(mobileView === 'call_screen' || callState !== 'idle') && !isCallMinimized ? (
-          <CallPanel mobileView={mobileView} setMobileView={setMobileView} />
+          <CallPanel mobileView="call_screen" setMobileView={setMobileView} />
         ) : (
           <ChatWindow
             messageText={messageText}
@@ -327,6 +327,7 @@ const Dashboard = () => {
                   value={newCommunityName}
                   onChange={(e) => setNewCommunityName(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-xl glass-input text-sm"
+                  autoFocus
                 />
               </div>
               <button

@@ -37,6 +37,8 @@ export const ChatProvider = ({ children }) => {
   const callStateRef = useRef(callState);
   const currentCallRef = useRef(currentCall);
   const callDurationRef = useRef(callDuration);
+  const callTimeoutRef = useRef(null);
+  const soundContextRef = useRef(null);
 
   selectedConversationRef.current = selectedConversation;
   callStateRef.current = callState;
@@ -87,6 +89,10 @@ export const ChatProvider = ({ children }) => {
   }, [conversations, socket]);
 
   const stopMedia = useCallback(() => {
+    if (callTimeoutRef.current) {
+      clearTimeout(callTimeoutRef.current);
+      callTimeoutRef.current = null;
+    }
     peerConnectionRef.current?.close();
     peerConnectionRef.current = null;
     localStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -94,6 +100,29 @@ export const ChatProvider = ({ children }) => {
     pendingCandidatesRef.current = [];
     setLocalStream(null);
     setRemoteStream(null);
+  }, []);
+
+  const playNotificationSound = useCallback((kind = 'message') => {
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      const context = soundContextRef.current || new AudioContextClass();
+      soundContextRef.current = context;
+      if (context.state === 'suspended') context.resume();
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(kind === 'call' ? 880 : 660, context.currentTime);
+      if (kind === 'call') oscillator.frequency.setValueAtTime(1046, context.currentTime + 0.16);
+      gain.gain.setValueAtTime(0.0001, context.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.14, context.currentTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + (kind === 'call' ? 0.42 : 0.18));
+      oscillator.connect(gain).connect(context.destination);
+      oscillator.start();
+      oscillator.stop(context.currentTime + (kind === 'call' ? 0.44 : 0.2));
+    } catch (error) {
+      console.warn('Unable to play notification sound:', error);
+    }
   }, []);
 
   const getMedia = useCallback(async (type) => {
@@ -116,7 +145,14 @@ export const ChatProvider = ({ children }) => {
     };
     connection.ontrack = ({ streams }) => setRemoteStream(streams[0]);
     connection.onconnectionstatechange = () => {
-      if (connection.connectionState === 'failed') stopMedia();
+      if (connection.connectionState === 'failed') {
+        socket?.emit('endCall', { to: peerId });
+        stopMedia();
+        setCallState('idle');
+        setCurrentCall(null);
+        setIsCallMinimized(false);
+        alert('The call connection failed. Please try again.');
+      }
     };
     peerConnectionRef.current = connection;
     return connection;
@@ -370,6 +406,16 @@ export const ChatProvider = ({ children }) => {
       setIsCallMinimized(false);
       setCurrentCall({ peerId, peerName, peerAvatar, isCaller: true, type });
       socket.emit('callUser', { userToCall: peerId, signalData: offer, type });
+      callTimeoutRef.current = setTimeout(() => {
+        if (callStateRef.current === 'dialing') {
+          socket.emit('endCall', { to: peerId });
+          stopMedia();
+          setCallState('idle');
+          setCurrentCall(null);
+          setIsCallMinimized(false);
+          alert('Call timed out. The user did not answer.');
+        }
+      }, 30000);
     } catch (error) {
       stopMedia();
       alert('Microphone or camera access is required to start a call.');
@@ -435,6 +481,7 @@ export const ChatProvider = ({ children }) => {
 
     // Handle message received
     socket.on('messageReceived', (message) => {
+      if (String(message.sender?._id) !== String(user?.id)) playNotificationSound('message');
       // If message is in the selected conversation
       if (selectedConversationRef.current && String(message.conversation) === String(selectedConversationRef.current._id)) {
         setMessages(prev => {
@@ -515,9 +562,10 @@ export const ChatProvider = ({ children }) => {
     socket.on('incomingCall', ({ from, name, avatar, signal, type }) => {
       // If already in a call, ignore/auto-decline
       if (callStateRef.current !== 'idle') {
-        socket.emit('declineCall', { to: from });
+        socket.emit('declineCall', { to: from, reason: 'busy' });
         return;
       }
+      playNotificationSound('call');
       setCallState('ringing');
       setIsCallMinimized(false);
       setCurrentCall({ peerId: from, peerName: name, peerAvatar: avatar, isCaller: false, type, signal });
@@ -525,10 +573,23 @@ export const ChatProvider = ({ children }) => {
 
     socket.on('callAccepted', async ({ signal }) => {
       if (!peerConnectionRef.current || !signal) return;
-      await peerConnectionRef.current.setRemoteDescription(signal);
-      for (const candidate of pendingCandidatesRef.current) await peerConnectionRef.current.addIceCandidate(candidate);
-      pendingCandidatesRef.current = [];
-      setCallState('connected');
+      try {
+        await peerConnectionRef.current.setRemoteDescription(signal);
+        for (const candidate of pendingCandidatesRef.current) await peerConnectionRef.current.addIceCandidate(candidate);
+        pendingCandidatesRef.current = [];
+        if (callTimeoutRef.current) {
+          clearTimeout(callTimeoutRef.current);
+          callTimeoutRef.current = null;
+        }
+        setCallState('connected');
+      } catch (error) {
+        console.error('Unable to establish call:', error);
+        stopMedia();
+        setCallState('idle');
+        setCurrentCall(null);
+        setIsCallMinimized(false);
+        alert('Unable to establish the call connection.');
+      }
     });
 
     socket.on('iceCandidate', async ({ candidate }) => {
@@ -550,6 +611,22 @@ export const ChatProvider = ({ children }) => {
       setIsCallMinimized(false);
       stopMedia();
       alert('Call declined');
+    });
+
+    socket.on('callBusy', () => {
+      stopMedia();
+      setCallState('idle');
+      setCurrentCall(null);
+      setIsCallMinimized(false);
+      alert('This person is busy on another call.');
+    });
+
+    socket.on('callUnavailable', () => {
+      stopMedia();
+      setCallState('idle');
+      setCurrentCall(null);
+      setIsCallMinimized(false);
+      alert('This person is currently unavailable.');
     });
 
     socket.on('callEnded', () => {
@@ -575,10 +652,12 @@ export const ChatProvider = ({ children }) => {
       socket.off('incomingCall');
       socket.off('callAccepted');
       socket.off('callDeclined');
+      socket.off('callBusy');
+      socket.off('callUnavailable');
       socket.off('callEnded');
       socket.off('iceCandidate');
     };
-  }, [socket, addCallHistory, stopMedia]);
+  }, [socket, addCallHistory, stopMedia, playNotificationSound, user?.id]);
 
   return (
     <ChatContext.Provider

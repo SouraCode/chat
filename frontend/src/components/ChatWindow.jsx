@@ -129,7 +129,10 @@ const ChatWindow = ({
             </button>
             {/* Maximize */}
             <button
-              onClick={() => setIsCallMinimized(false)}
+              onClick={() => {
+                setIsCallMinimized(false);
+                setMobileView('call_screen');
+              }}
               className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-[10px] font-bold text-white transition-all shadow-md shadow-blue-600/20"
             >
               Maximize
@@ -273,6 +276,7 @@ const ChatWindow = ({
           value={messageText}
           onChange={handleInputChange}
           disabled={isBlockedByMe}
+          autoFocus
           placeholder={isBlockedByMe ? "You have blocked this user. Unblock to send messages." : "Type your message here..."}
           className="flex-1 px-4 py-3 rounded-xl glass-input text-sm disabled:opacity-50 disabled:cursor-not-allowed"
         />
