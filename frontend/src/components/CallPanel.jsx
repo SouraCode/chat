@@ -32,6 +32,7 @@ const CallPanel = ({ mobileView, setMobileView }) => {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const videoContainerRef = useRef(null);
+  const isVideoCall = currentCall?.type === 'video';
 
   const openVideoFullscreen = async () => {
     try {
@@ -71,9 +72,11 @@ const CallPanel = ({ mobileView, setMobileView }) => {
   return (
     <div className={`flex-1 flex flex-col bg-[#14141a]/95 backdrop-blur-2xl relative ${
       mobileView === 'call_screen' ? 'flex' : 'hidden md:flex'
-    }`}>
+    } ${isVideoCall ? 'absolute inset-0 z-40 bg-black md:relative md:inset-auto md:z-auto' : ''}`}>
       {/* Call Header controls */}
-      <div className="p-4 sm:p-6 flex items-center justify-between text-gray-400">
+      <div className={`p-4 sm:p-6 flex items-center justify-between text-gray-400 ${
+        isVideoCall ? 'absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-black/70 to-transparent md:relative md:bg-none' : ''
+      }`}>
         <button onClick={handleBack} className="p-2.5 rounded-xl glass-btn hover:text-white transition-all">
           <ArrowLeft size={20} />
         </button>
@@ -93,9 +96,11 @@ const CallPanel = ({ mobileView, setMobileView }) => {
       </div>
 
       {/* Calling profile area */}
-      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-start sm:justify-center p-4">
-        {currentCall?.type === 'video' && (localStream || remoteStream) && (
-          <div ref={videoContainerRef} className="relative w-full max-w-6xl aspect-video min-h-[52vh] sm:min-h-[60vh] rounded-3xl overflow-hidden bg-black border border-white/10 shadow-2xl mb-6">
+      <div className={`flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-start sm:justify-center p-4 ${
+        isVideoCall ? 'relative overflow-hidden p-0 md:p-4' : ''
+      }`}>
+        {isVideoCall && (
+          <div ref={videoContainerRef} className="absolute inset-0 h-full w-full max-w-none min-h-0 aspect-auto rounded-none overflow-hidden bg-black border-0 shadow-none mb-0 md:relative md:w-full md:max-w-6xl md:aspect-video md:min-h-[60vh] md:rounded-3xl md:border md:border-white/10 md:shadow-2xl md:mb-6">
             {remoteStream ? (
               <video ref={remoteVideoRef} autoPlay playsInline className="h-full w-full object-cover" />
             ) : (
@@ -105,7 +110,7 @@ const CallPanel = ({ mobileView, setMobileView }) => {
           </div>
         )}
         {currentCall?.type === 'audio' && remoteStream && <audio ref={remoteVideoRef} autoPlay />}
-        <div className="relative mb-6">
+        <div className={`relative mb-6 ${isVideoCall ? 'hidden md:block' : ''}`}>
           <div className="absolute -inset-4 rounded-[42px] bg-gradient-to-tr from-blue-600 to-indigo-600 opacity-20 blur-xl animate-pulse"></div>
           <img
             src={currentCall?.peerAvatar || 'https://api.dicebear.com/7.x/adventurer/svg?seed=Angelina'}
@@ -114,11 +119,11 @@ const CallPanel = ({ mobileView, setMobileView }) => {
           />
         </div>
 
-        <h2 className="text-2xl font-bold text-gray-100 mb-2">
+        <h2 className={`text-2xl font-bold text-gray-100 mb-2 ${isVideoCall ? 'hidden md:block' : ''}`}>
           {currentCall?.peerName || 'Angelina Jole'}
         </h2>
 
-        <span className="px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-xs text-gray-400 tracking-wider">
+        <span className={`px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-xs text-gray-400 tracking-wider ${isVideoCall ? 'hidden md:inline-flex' : ''}`}>
           {callState === 'dialing' && 'Dialing call...'}
           {callState === 'ringing' && 'Incoming Call...'}
           {callState === 'connected' && `Connected • ${formatTimer(callDuration)}`}
@@ -126,7 +131,9 @@ const CallPanel = ({ mobileView, setMobileView }) => {
       </div>
 
       {/* Bottom Call Control Buttons */}
-      <div className="p-4 sm:p-8 flex justify-center">
+      <div className={`p-4 sm:p-8 flex justify-center ${
+        isVideoCall ? 'absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/85 to-transparent pt-12 md:relative md:bg-none md:pt-8' : ''
+      }`}>
         <div className="glass-panel px-4 py-4 sm:px-8 sm:py-5 rounded-3xl flex items-center justify-center flex-wrap gap-3 sm:gap-6 border border-white/5">
           {/* Camera Control */}
           <button
